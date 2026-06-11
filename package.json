@@ -1,0 +1,24 @@
+{
+  "name": "boardroom-ai",
+  "version": "0.3.3",
+  "description": "Your one-person company, incorporated. A board of AI directors that learns you, picks its own agenda, debates with evidence, rules with a confidence score, scores itself against reality — then an executor that actually does the work after one click.",
+  "bin": { "boardroom": "bin/boardroom.mjs" },
+  "type": "module",
+  "main": "engine.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "files": [
+    "bin/",
+    "public/",
+    "engine.mjs",
+    "server.mjs",
+    "telegram.mjs",
+    "README.md",
+    "GUIDE.md",
+    "GUIDE.ko.md"
+  ],
+  "engines": { "node": ">=18" },
+  "keywords": ["ai", "agents", "decision", "multi-agent", "claude", "board", "autopilot", "executor", "harness", "gpt", "gemini"],
+  "license": "MIT"
+}

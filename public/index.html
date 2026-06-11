@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boardroom — decision intelligence</title>
+<style>
+  :root {
+    --bg: #070708; --card: #0d0e11; --card2: #121318; --ink: #ededef; --dim: #8b8f99;
+    --line: #1c1d23; --accent: #3b82f6; --amber: #e8b44f; --red: #e25c5c; --green: #41c98e;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: Inter, -apple-system, "SF Pro Text", sans-serif; min-height: 100vh; font-size: 15px; }
+  /* app shell: fixed left sidebar + scrolling main */
+  .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+  .sidebar { border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; background: linear-gradient(180deg, #0a0a0c, #070708); }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; letter-spacing: .3px; padding: 6px 10px 18px; }
+  .brand .mk { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
+  .brand .ver { color: var(--dim); font-size: 10px; font-family: var(--mono); font-weight: 500; margin-left: auto; }
+  nav { display: flex; flex-direction: column; gap: 3px; }
+  nav button { display: flex; align-items: center; gap: 11px; border: 0; background: transparent; color: var(--dim); font-weight: 600; font-size: 14px; padding: 10px 12px; border-radius: 9px; cursor: pointer; font-family: inherit; text-align: left; width: 100%; }
+  nav button:hover { background: var(--card); color: var(--ink); }
+  nav button.on { background: var(--card2); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+  nav button .ico { width: 17px; text-align: center; opacity: .9; }
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .side-foot .ctrls { display: flex; gap: 8px; }
+  .side-user { display: flex; align-items: center; gap: 10px; }
+  .side-user .uav { width: 30px; height: 30px; border-radius: 50%; background: var(--card2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .side-user .un { font-size: 13px; font-weight: 600; } .side-user .ur { font-size: 10px; color: var(--dim); font-family: var(--mono); letter-spacing: .5px; }
+  .main { padding: 30px 34px 90px; max-width: 1180px; }
+  @media (max-width: 720px) { .app { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; flex-direction: column; } nav { flex-direction: row; flex-wrap: wrap; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px; }
+  h1 { font-size: 21px; letter-spacing: -.3px; margin-bottom: 8px; font-weight: 700; }
+  .sub { color: var(--dim); font-size: 13.5px; line-height: 1.65; max-width: 620px; }
+  .view { display: none; } .view.on { display: block; }
+  /* live-sync visual effects */
+  @keyframes glowin { from { opacity: 0; transform: translateY(-5px); background: rgba(59,130,246,.16); } to { opacity: 1; transform: none; background: transparent; } }
+  .justin { animation: glowin 1.1s ease-out; border-radius: 7px; }
+  @keyframes badgebump { 0% { transform: scale(1); } 35% { transform: scale(1.5); box-shadow: 0 0 0 4px rgba(232,180,79,.25); } 100% { transform: scale(1); } }
+  #qbadge.bump { animation: badgebump .6s ease-out; }
+  .livedotmini { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; box-shadow: 0 0 0 0 rgba(59,130,246,.5); animation: lpulse 2s infinite; }
+  @keyframes lpulse { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,.45); } 70% { box-shadow: 0 0 0 7px rgba(59,130,246,0); } 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } }
+
+  /* setup */
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 22px; }
+  .model { border: 1px solid var(--line); border-radius: 12px; padding: 20px; cursor: pointer; transition: border-color .15s; background: var(--card2); }
+  .model:hover { border-color: var(--accent); }
+  .model.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .model h3 { font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .model .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .model p { font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+  .model .tag { display: inline-block; margin-top: 12px; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 5px; font-family: var(--mono); letter-spacing: .5px; }
+  .tag.auto { background: rgba(65,201,142,.12); color: var(--green); border: 1px solid rgba(65,201,142,.3); }
+  .tag.manual { background: rgba(232,180,79,.1); color: var(--amber); border: 1px solid rgba(232,180,79,.3); }
+  .keyrow { display: none; margin-top: 16px; gap: 10px; }
+  .keyrow.show { display: flex; }
+  input, textarea { font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; width: 100%; background: var(--card2); color: var(--ink); }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; padding: 11px 20px; border-radius: 9px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .btn.ghost { background: var(--card2); color: var(--ink); border: 1px solid var(--line); }
+  .btn:disabled { opacity: .35; cursor: default; }
+
+  /* staff */
+  .staffgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; margin-top: 20px; }
+  .emp { border: 1px solid var(--line); border-radius: 12px; padding: 18px; position: relative; background: var(--card2); }
+  .emp .av { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 15px; color: #0b0d11; margin-bottom: 12px; }
+  .emp h3 { font-size: 14.5px; }
+  .emp .role { font-size: 10.5px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--mono); margin-top: 2px; }
+  .emp p { font-size: 12px; color: var(--dim); margin-top: 10px; line-height: 1.6; }
+  .emp .fire { position: absolute; top: 12px; right: 14px; border: 0; background: none; cursor: pointer; color: var(--dim); font-size: 13px; opacity: 0; transition: .15s; }
+  .emp:hover .fire { opacity: 1; }
+  .emp.add { display: flex; align-items: center; justify-content: center; min-height: 140px; cursor: pointer; border-style: dashed; color: var(--dim); font-weight: 600; font-size: 13px; background: transparent; }
+  .emp.add:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* boardroom */
+  .hero { margin-bottom: 16px; }
+  .hero-tag { font-size: 19px; line-height: 1.5; font-weight: 600; letter-spacing: -.2px; }
+  .hero-tag b { color: var(--accent); font-weight: 700; }
+  .hero-stats { display: flex; gap: 12px; margin-top: 18px; }
+  .hstat { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 15px 18px; }
+  .hstat .hv { font-family: var(--mono); font-size: 25px; font-weight: 800; color: var(--accent); line-height: 1; display: flex; align-items: center; gap: 7px; }
+  .hstat .hl { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; font-family: var(--mono); }
+  .hero-diff { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--dim); }
+  @media (max-width: 620px) { .hero-stats { flex-direction: column; } }
+  .ready { margin-top: 4px; font-size: 12.5px; padding: 9px 13px; border-radius: 9px; display: none; }
+  .ready.ok { display: block; background: rgba(65,201,142,.09); border: 1px solid rgba(65,201,142,.28); color: var(--green); }
+  .ready.warn { display: block; background: rgba(232,180,79,.09); border: 1px solid rgba(232,180,79,.3); color: var(--amber); cursor: pointer; }
+  .askrow { display: flex; gap: 10px; margin-top: 18px; }
+  .apsel { width: auto; flex: 0 0 auto; background: var(--card2); border: 1px solid var(--line); color: var(--dim); font-weight: 600; font-size: 13px; padding: 0 14px; border-radius: 9px; cursor: pointer; }
+  .apsel:focus { border-color: var(--accent); }
+  .feed { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .roundlbl { font-size: 10.5px; font-weight: 700; letter-spacing: 2.5px; color: var(--dim); text-transform: uppercase; margin: 14px 0 4px; font-family: var(--mono); display: flex; align-items: center; gap: 12px; }
+  .roundlbl::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .notice { background: linear-gradient(180deg, rgba(59,130,246,.08), rgba(59,130,246,.02)); border: 1px solid rgba(59,130,246,.3); border-radius: 12px; padding: 13px 16px; margin: 10px 0; font-size: 13px; line-height: 1.6; }
+  .notice .nh { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .5px; margin-bottom: 5px; }
+  .notice .nw { color: var(--dim); font-size: 12px; margin-top: 3px; }
+  .bub { display: flex; gap: 12px; animation: rise .22s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  .bub .av { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 12px; color: #0b0d11; }
+  .bub .body { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 15px; flex: 1; min-width: 0; }
+  .bub .who { font-size: 11.5px; font-weight: 700; margin-bottom: 5px; font-family: var(--mono); letter-spacing: .5px; }
+  .bub .txt { font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: #c6ccd6; }
+  .bub.chair .body { border-color: rgba(232,180,79,.4); }
+  .bub.redteam .body { border-color: rgba(226,92,92,.45); }
+  .verdictcard { margin-top: 20px; border: 1px solid rgba(65,201,142,.4); background: rgba(65,201,142,.05); border-radius: 12px; padding: 20px; display: none; }
+  .verdictcard.down { border-color: rgba(226,92,92,.45); background: rgba(226,92,92,.05); }
+  .verdictcard h3 { font-size: 14px; font-family: var(--mono); letter-spacing: 1px; }
+  .confbar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 14px 0 8px; }
+  .confbar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+  .confring { position: relative; width: 104px; height: 104px; flex: 0 0 104px; }
+  .confring-n { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 800; font-size: 28px; }
+  .confring-n i { font-style: normal; font-size: 13px; color: var(--dim); margin-left: 1px; align-self: flex-start; margin-top: 30px; }
+  .typing { color: var(--dim); font-size: 12px; padding-left: 44px; font-family: var(--mono); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 18px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--mono); }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 5px; font-family: var(--mono); }
+  .pill.ok { background: rgba(65,201,142,.12); color: var(--green); }
+  .pill.down { background: rgba(226,92,92,.12); color: var(--red); }
+  dialog { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 14px; padding: 26px; max-width: 440px; width: 92vw; }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  dialog h3 { margin-bottom: 16px; font-size: 16px; }
+  dialog .row { margin-bottom: 10px; }
+  select { font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card2); color: var(--ink); width: 100%; }
+  select:focus { outline: none; border-color: var(--accent); }
+  .rolegrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+  .rolebox { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--card2); }
+  .rolebox .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase; font-family: var(--mono); margin-bottom: 10px; }
+  .emp select { margin-top: 12px; font-size: 12px; padding: 6px 8px; }
+  .execfeed { margin-top: 14px; background: #0a0c10; border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-family: var(--mono); font-size: 12px; line-height: 1.8; max-height: 320px; overflow-y: auto; display: none; }
+  .execfeed .tl { color: var(--dim); font-size: 11px; opacity: .7; padding-left: 2px; } .execfeed .say { color: var(--dim); } .execfeed .res { color: var(--accent); font-weight: 700; margin-top: 6px; }
+  .execfeed .voice { color: var(--ink); font-family: var(--sans, inherit); font-size: 13px; line-height: 1.6; padding: 4px 0 4px 12px; border-left: 2px solid var(--accent); margin: 6px 0; }
+  .execfeed .execrun { display: flex; align-items: center; gap: 9px; font-family: var(--sans, inherit); font-size: 13px; font-weight: 600; color: var(--accent); padding: 8px 12px; background: rgba(59,130,246,.08); border-radius: 9px; margin-bottom: 8px; }
+  .planstep { display: flex; gap: 8px; font-size: 13px; line-height: 1.6; margin-bottom: 6px; }
+  .planstep .n { font-family: var(--mono); color: var(--dim); flex: 0 0 18px; }
+  .planstep.hold { color: var(--amber); }
+  .keyguide { display: none; margin-top: 12px; font-size: 12.5px; color: var(--dim); line-height: 1.7; }
+  .keyguide.show { display: block; }
+  .keyguide a { color: var(--accent); }
+
+  /* live feel */
+  .livebar { display: none; align-items: center; gap: 14px; margin-top: 18px; padding: 12px 16px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; }
+  .livebar.on { display: flex; }
+  .livedot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1.1s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .livelbl { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--red); }
+  .clock { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .presence { display: flex; gap: 8px; margin-left: auto; }
+  .presence .pav { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 10.5px; color: #0b0d11; opacity: .45; transition: .25s; }
+  .presence .pav.active { opacity: 1; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor; transform: scale(1.12); }
+  .dots { display: inline-flex; gap: 3px; margin-left: 6px; }
+  .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--dim); animation: blink 1s infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  .bub .txt .cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: text-bottom; margin-left: 2px; animation: blink .8s steps(1) infinite; }
+  .confbar i { transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.3.3</span></div>
+    <nav>
+      <button data-v="office"><span class="ico">👥</span> Staff</button>
+      <button data-v="meeting" class="on"><span class="ico">▦</span> Boardroom</button>
+      <button data-v="approvals"><span class="ico">✓</span> Approvals <span id="qbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
+      <button data-v="reports"><span class="ico">📄</span> Reports</button>
+      <button data-v="ledger"><span class="ico">📈</span> Ledger</button>
+      <button data-v="setup"><span class="ico">⚙</span> Engine</button>
+    </nav>
+    <div class="side-foot">
+      <div class="ctrls">
+        <button id="sfx" title="sound" style="flex:1; padding:7px; font-size:13px; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">🔊</button>
+        <select id="lang" style="flex:1; padding:6px 8px; font-size:12px">
+          <option value="en">EN</option><option value="ko">한국어</option>
+        </select>
+      </div>
+      <div class="side-user"><span class="uav">●</span><div><div class="un">Founder</div><div class="ur">LOCAL ACCESS</div></div></div>
+    </div>
+  </aside>
+  <main class="main">
+
+  <section class="view" id="v-setup">
+    <div class="card">
+      <h1>Engine</h1>
+      <p class="sub">Keys auto-detected from this machine. Pick a model per role.</p>
+      <div class="grid3" id="conns"></div>
+      <div class="keyrow" id="keyrow">
+        <input id="keyinput" type="password" placeholder="Paste an API key once">
+        <button class="btn" id="savekey">Connect</button>
+      </div>
+      <div class="keyguide" id="keyguide"></div>
+      <h1 style="margin-top:28px; font-size:17px">Models</h1>
+      <p class="sub">A model per role. Mix freely — chair on Fable, seats on Sonnet, a GPT seat too.</p>
+      <div class="rolegrid" id="rolesel"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-office">
+    <div class="card">
+      <h1>Staff</h1>
+      <p class="sub">Hire directors. Each reads every decision through one lens.</p>
+      <div class="staffgrid" id="staff"></div>
+      <div id="divisions"></div>
+      <div id="ownerbox" style="display:none; margin-top:22px; border-top:1px solid var(--line); padding-top:18px">
+        <div style="color:var(--accent); font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:1.5px">WHAT THE COMPANY KNOWS ABOUT YOU</div>
+        <pre id="ownermd" style="white-space:pre-wrap; font-size:12.5px; color:var(--dim); line-height:1.7; margin-top:8px"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="view on" id="v-meeting">
+    <div class="hero">
+      <div class="hero-tag" data-i18n="herotag">An AI board that <b>argues</b>, <b>scores itself</b>, and <b>does the work</b>. You just approve.</div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="hv" id="h-avg">—</div><div class="hl" data-i18n="h-avg">batting average</div></div>
+        <div class="hstat"><div class="hv" id="h-dec">0</div><div class="hl" data-i18n="h-dec">decisions made</div></div>
+        <div class="hstat"><div class="hv" id="h-auto"><span class="livedotmini"></span> <span id="h-auto-t">off</span></div><div class="hl" data-i18n="h-auto">autopilot</div></div>
+      </div>
+      <div class="hero-diff">
+        <span data-i18n="d-debate">⚖️ Debated &amp; red-teamed</span>
+        <span data-i18n="d-score">📊 Owns its track record</span>
+        <span data-i18n="d-auto">🤖 Runs itself — you approve</span>
+      </div>
+    </div>
+    <div class="card">
+      <div id="ready" class="ready"></div>
+      <div class="askrow">
+        <input id="q" placeholder='Should I raise prices 20%?'>
+        <button class="btn" id="go">Convene</button>
+        <select id="ap" class="apsel" title="Autopilot — the board convenes itself on your interests and files plans to Approvals">
+          <option value="0">⚡ Autopilot: Off</option>
+          <option value="30">⚡ Autopilot: every 30 min</option>
+          <option value="60">⚡ Autopilot: hourly</option>
+          <option value="180">⚡ Autopilot: every 3 h</option>
+        </select>
+      </div>
+      <div id="apfeed" style="display:none; margin-top:16px; border-left:2px solid var(--accent); padding-left:14px"></div>
+      <div class="livebar" id="livebar">
+        <span class="livedot"></span><span class="livelbl">LIVE</span>
+        <span class="clock" id="meetclock">00:00</span>
+        <div class="presence" id="presence"></div>
+      </div>
+      <div class="feed" id="feed"></div>
+      <div class="verdictcard" id="vc"></div>
+      <div class="execfeed" id="execfeed"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-approvals">
+    <div class="card">
+      <h1>Approvals</h1>
+      <p class="sub">Everything the board wants to do waits here. Execute or Decline.</p>
+      <div id="queue"></div>
+      <div class="execfeed" id="qexecfeed"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-reports">
+    <div class="card">
+      <h1>Reports</h1>
+      <p class="sub">Every meeting, filed. Autopilot keeps adding to this while you're away.</p>
+      <div id="reports"></div>
+      <pre id="report-body" style="display:none; white-space:pre-wrap; font-size:12.5px; line-height:1.7; color:#c6ccd6; margin-top:16px; border-top:1px solid var(--line); padding-top:16px"></pre>
+    </div>
+  </section>
+
+  <section class="view" id="v-ledger">
+    <div class="card">
+      <h1>Decision ledger</h1>
+      <p class="sub">Every verdict scored against reality. The only AI that keeps its own batting average.</p>
+      <div id="ledger"></div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<dialog id="plandlg" style="max-width:560px">
+  <h3>Execution plan — approval required</h3>
+  <p class="sub" id="plan-summary" style="margin-bottom:12px"></p>
+  <div id="plan-steps"></div>
+  <p class="sub" style="margin-top:12px"><b style="color:var(--ink)">Deliverable</b> · <span id="plan-deliv"></span></p>
+  <p class="sub"><b style="color:var(--red)">Risk</b> · <span id="plan-risk"></span></p>
+  <p class="sub" style="margin-top:10px; color:var(--amber)" id="plan-held"></p>
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px">
+    <button class="btn ghost" onclick="plandlg.close()">Deny</button>
+    <button class="btn" id="plan-approve" style="background:var(--green); color:#0b0d11">Approve & run</button>
+  </div>
+</dialog>
+
+<dialog id="hire">
+  <h3>Hire a seat</h3>
+  <div class="row"><input id="h-name" placeholder="Name (e.g. Vale)"></div>
+  <div class="row"><input id="h-role" placeholder="Seat (e.g. counsel, growth, cfo)"></div>
+  <div class="row"><textarea id="h-lens" rows="3" placeholder="Lens — how this seat reads every question. e.g. 'Legal and regulatory exposure first. What gets us sued?'"></textarea></div>
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px">
+    <button class="btn ghost" onclick="hire.close()">Cancel</button>
+    <button class="btn" id="h-save">Hire</button>
+  </div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+let STATE = { staff: [], provider: null, claudeCli: false };
+const COLORS = ['#5b8cff','#41c98e','#e8b44f','#b07cff','#5ad7e0','#ff8b6b','#e25c5c','#9ccc4f'];
+const colorOf = s => COLORS[[...(s.id||'x')].reduce((a,c)=>a+c.charCodeAt(0),0) % COLORS.length];
+const initials = s => (s.name||s.id||'?').slice(0,2).toUpperCase();
+
+// providers + per-role/per-seat model selection
+const PROVIDERS = [
+  { id: 'anthropic', dot: '#e8804f', name: 'Claude',
+    status: st => st.hasAnthropicKey ? `API key · ${st.anthropicSource}` : st.claudeCli ? 'Claude Code CLI' : null },
+  { id: 'openai', dot: '#41c98e', name: 'OpenAI',
+    status: st => st.hasOpenaiKey ? `API key · ${st.openaiSource}` : null },
+  { id: 'gemini', dot: '#5b8cff', name: 'Gemini',
+    status: st => st.hasGeminiKey ? `API key · ${st.geminiSource}` : null },
+];
+const connected = prov => prov === 'anthropic' ? (STATE.hasAnthropicKey || STATE.claudeCli)
+  : prov === 'openai' ? STATE.hasOpenaiKey : STATE.hasGeminiKey;
+
+let CUR = 'meeting';
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+function show(v) {
+  CUR = v;
+  document.querySelectorAll('.view').forEach(sec => sec.classList.remove('on'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('v-' + v).classList.add('on');
+  if (v === 'ledger') loadLedger();
+  if (v === 'reports') loadReports();
+  if (v === 'approvals') loadQueue();
+}
+
+let _lastQ = 0;
+async function refresh() {
+  STATE = await (await fetch('/api/state')).json();
+  renderConns(); renderRoles(); renderStaff();
+  $('ap').value = STATE.autopilot.enabled ? String(STATE.autopilot.intervalMin) : '0';
+  syncBadge();
+  renderReady(); renderHero();
+  loadActivity(); armLive();
+  applyLang(LANG);
+}
+async function renderHero() {
+  try {
+    const { stats } = await (await fetch('/api/ledger')).json();
+    if (stats) { $('h-avg').textContent = stats.avg == null ? '—' : ('.' + String(Math.round(stats.avg * 1000)).padStart(3, '0')); $('h-dec').textContent = stats.total || 0; }
+  } catch {}
+  const on = STATE.autopilot && STATE.autopilot.enabled;
+  const dot = $('h-auto').querySelector('.livedotmini'); if (dot) dot.style.opacity = on ? '1' : '.2';
+  $('h-auto-t').textContent = on ? (LANG === 'ko' ? '켜짐' : 'live') : (LANG === 'ko' ? '꺼짐' : 'off');
+}
+function renderReady() {
+  const r = $('ready'); if (!r) return;
+  const cli = STATE.claudeCli, key = STATE.hasAnthropicKey || STATE.hasOpenaiKey || STATE.hasGeminiKey;
+  if (cli || key) {
+    r.className = 'ready ok';
+    r.textContent = cli ? t('✓ Ready — running on Claude Code, no setup. Type a decision below.')
+                        : t('✓ Ready — API key connected. Type a decision below.');
+    r.onclick = null;
+  } else {
+    r.className = 'ready warn';
+    r.textContent = t('⚠ Connect a model in Engine (one paste) to start →');
+    r.onclick = () => show('setup');
+  }
+}
+function syncBadge() {
+  const qb = $('qbadge'), n = STATE.queueCount || 0;
+  qb.style.display = n ? 'inline-block' : 'none';
+  qb.textContent = n;
+  if (n > _lastQ) { qb.classList.remove('bump'); void qb.offsetWidth; qb.classList.add('bump'); sfx.tick(); }
+  _lastQ = n;
+}
+
+const ACT_ICON = { notice: '🔔', agenda: '🗂', verdict: '⚖️', queued: '📥', error: '⚠️' };
+function ago(iso) { const s = Math.max(0, (Date.now() - new Date(iso)) / 1000); return s < 60 ? `${s | 0}s` : s < 3600 ? `${s / 60 | 0}m` : s < 86400 ? `${s / 3600 | 0}h` : `${s / 86400 | 0}d`; }
+let _actSeen = new Set();
+async function loadActivity() {
+  let activity; try { activity = (await (await fetch('/api/activity')).json()).activity; } catch { return; }
+  const box = $('apfeed');
+  if (!activity || !activity.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const firstLoad = _actSeen.size === 0;
+  const clip = s => { s = (s || '').replace(/</g, '&lt;'); return s.length > 64 ? s.slice(0, 64) + '…' : s; };
+  box.innerHTML = `<div class="sub" style="margin:0 0 8px; font-family:var(--mono); font-size:11px; color:var(--accent); display:flex; align-items:center; gap:7px"><span class="livedotmini"></span>${t('LIVE — working on its own')}</div>` +
+    activity.slice(0, 5).map(a => {
+      const isNew = !firstLoad && !_actSeen.has(a.at);
+      return `<div class="${isNew ? 'justin' : ''}" style="display:flex; gap:9px; padding:5px 6px; font-size:12.5px; align-items:baseline">
+      <span>${ACT_ICON[a.kind] || '•'}</span>
+      <span style="color:var(--ink); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${clip(a.text)}</span>
+      <span style="font-family:var(--mono); font-size:10.5px; color:var(--dim); opacity:.6">${ago(a.at)}</span></div>`;
+    }).join('');
+  activity.forEach(a => _actSeen.add(a.at));
+  applyLang(LANG);
+}
+
+// global live poller — phone/autopilot changes appear on the open page without a manual refresh
+let _liveTimer = null;
+function armLive() {
+  clearInterval(_liveTimer);
+  _liveTimer = setInterval(async () => {
+    try {
+      const s = await (await fetch('/api/state')).json();
+      STATE.queueCount = s.queueCount; STATE.autopilot = s.autopilot;
+      $('ap').value = s.autopilot.enabled ? String(s.autopilot.intervalMin) : '0';
+      syncBadge();
+      loadActivity(); if (CUR === 'meeting') renderHero();
+      if (CUR === 'approvals' && !window._executing) loadQueue();
+      else if (CUR === 'ledger') loadLedger();
+    } catch {}
+  }, 7000);
+}
+
+function modelOptions(selected, allowDefault) {
+  let html = allowDefault ? `<option value="">default — ${STATE.roles.seat}</option>` : '';
+  for (const prov of ['anthropic', 'openai', 'gemini']) {
+    const ms = STATE.catalog.filter(m => m.provider === prov);
+    html += `<optgroup label="${prov}${connected(prov) ? '' : ' — not connected'}">` +
+      ms.map(m => `<option value="${m.id}" ${m.id === selected ? 'selected' : ''} ${connected(prov) ? '' : 'disabled'}>${m.label} — ${m.note}</option>`).join('') +
+      '</optgroup>';
+  }
+  return html;
+}
+
+function renderConns() {
+  $('conns').innerHTML = PROVIDERS.map(pr => {
+    const st = pr.status(STATE);
+    return `<div class="model" data-p="${pr.id}">
+      <h3><span class="dot" style="background:${pr.dot}"></span>${pr.name}</h3>
+      ${st ? `<span class="tag auto">auto-connected · ${st}</span>`
+           : `<span class="tag manual">not detected — click to connect</span>`}
+    </div>`;
+  }).join('');
+  const KEY_GUIDE = {
+    anthropic: 'Get a key at <a href="https://platform.claude.com" target="_blank">platform.claude.com</a> → API Keys → Create key. Or just install <a href="https://claude.com/claude-code" target="_blank">Claude Code</a> and sign in — Boardroom uses it automatically, no key needed.',
+    openai: 'Get a key at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a> → Create new secret key. Paste it once above — stored locally (0600), never displayed again.',
+    gemini: 'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> → Create API key. Paste it once above — stored locally (0600), never displayed again.',
+  };
+  document.querySelectorAll('#conns .model').forEach(el => el.onclick = () => {
+    pendingProvider = el.dataset.p;
+    $('keyrow').classList.add('show');
+    $('keyguide').classList.add('show');
+    $('keyguide').innerHTML = KEY_GUIDE[pendingProvider];
+    $('keyinput').focus();
+  });
+}
+
+function renderRoles() {
+  const ROLES = [
+    { key: 'chair', lbl: 'Chair — rules the verdict' },
+    { key: 'seat', lbl: 'Seats — default for employees' },
+    { key: 'redteam', lbl: 'Red team — attacks the verdict' },
+  ];
+  $('rolesel').innerHTML = ROLES.map(r => `<div class="rolebox">
+    <div class="lbl">${r.lbl}</div>
+    <select data-role="${r.key}">${modelOptions(STATE.roles[r.key], false)}</select>
+  </div>`).join('');
+  document.querySelectorAll('#rolesel select').forEach(sel => sel.onchange = async () => {
+    STATE.roles[sel.dataset.role] = sel.value;
+    await fetch('/api/config', { method: 'POST', body: JSON.stringify({ roles: STATE.roles }) });
+    refresh();
+  });
+}
+
+let pendingProvider = null;
+$('savekey').onclick = async () => {
+  const key = $('keyinput').value.trim();
+  if (!key || !pendingProvider) return;
+  const b = {};
+  b[pendingProvider + 'Key'] = key;
+  await fetch('/api/config', { method: 'POST', body: JSON.stringify(b) });
+  $('keyinput').value = ''; $('keyrow').classList.remove('show');
+  await refresh();
+};
+
+function renderStaff() {
+  $('staff').innerHTML = STATE.staff.map((s, i) => `
+    <div class="emp">
+      <button class="fire" data-i="${i}" title="remove">✕</button>
+      <div class="av" style="background:${colorOf(s)}">${initials(s)}</div>
+      <h3>${s.name}</h3><div class="role">${s.id}</div>
+      <p>${s.lens}</p>
+      <select data-emp="${i}" title="model">${modelOptions(s.model || '', true)}</select>
+    </div>`).join('') + `<div class="emp add" id="addemp">+ Hire seat</div>`;
+  document.querySelectorAll('.fire').forEach(b => b.onclick = async () => {
+    STATE.staff.splice(+b.dataset.i, 1); await saveStaff();
+  });
+  document.querySelectorAll('.emp select').forEach(sel => sel.onchange = async () => {
+    const emp = STATE.staff[+sel.dataset.emp];
+    if (sel.value) emp.model = sel.value; else delete emp.model;
+    await saveStaff();
+  });
+  $('addemp').onclick = () => hire.showModal();
+  $('divisions').innerHTML = (STATE.divisions || []).map(d => `
+    <div style="margin-top:22px; border-top:1px solid var(--line); padding-top:18px">
+      <div style="display:flex; align-items:baseline; gap:10px">
+        <h3 style="font-size:15px">🏢 ${d.name}</h3>
+        <span class="sub" style="font-size:12px">${d.focus} · founded ${d.founded} by the board itself</span>
+      </div>
+      <div class="staffgrid" style="margin-top:12px">${d.staff.map(m => `
+        <div class="emp"><div class="av" style="background:${colorOf(m)}">${initials(m)}</div>
+        <h3>${m.name}</h3><div class="role">${m.id}</div><p>${m.lens}</p></div>`).join('')}
+      </div>
+    </div>`).join('');
+  if (STATE.owner && STATE.owner.trim()) {
+    $('ownerbox').style.display = 'block';
+    $('ownermd').textContent = STATE.owner;
+  }
+}
+async function saveStaff() {
+  await fetch('/api/staff', { method: 'POST', body: JSON.stringify({ staff: STATE.staff }) });
+  renderStaff();
+}
+$('h-save').onclick = async () => {
+  const name = $('h-name').value.trim(), role = $('h-role').value.trim(), lens = $('h-lens').value.trim();
+  if (!name || !role || !lens) return;
+  STATE.staff.push({ id: role.toLowerCase(), name, lens });
+  await saveStaff(); hire.close();
+  $('h-name').value = $('h-role').value = $('h-lens').value = '';
+};
+
+// ── live meeting: timer, presence strip, typewriter render queue ──
+let clockT = null;
+function startClock() {
+  const t0 = Date.now();
+  $('livebar').classList.add('on');
+  clockT = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    $('meetclock').textContent = `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+  }, 500);
+}
+function stopClock() { clearInterval(clockT); }
+function renderPresence(staff) {
+  const all = [...staff, { id: 'chair', name: 'Chair' }, { id: 'redteam', name: 'Red Team' }];
+  $('presence').innerHTML = all.map(s => {
+    const col = s.id === 'chair' ? '#e8b44f' : s.id === 'redteam' ? '#e25c5c' : colorOf(s);
+    return `<div class="pav" data-seat="${s.id}" style="background:${col}; color:${col}">${initials(s)}</div>`;
+  }).join('');
+}
+function setActive(id) {
+  document.querySelectorAll('.presence .pav').forEach(p => p.classList.toggle('active', p.dataset.seat === id));
+}
+
+// render queue — events arrive in bursts; we play them back one at a time
+const RQ = [];
+let playing = false;
+async function enqueue(ev) { RQ.push(ev); if (!playing) playQueue(); }
+async function playQueue() {
+  playing = true;
+  while (RQ.length) await play(RQ.shift());
+  playing = false;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function typewrite(el, text) {
+  const node = document.createTextNode('');
+  const cur = document.createElement('span'); cur.className = 'cursor';
+  el.appendChild(node); el.appendChild(cur);
+  let i = 0;
+  for (const w of text.split(/(\s+)/)) {
+    node.textContent += w;
+    if (w.trim() && (i++ % 3 === 0)) el.scrollIntoView({ block: 'nearest' });
+    if (w.trim()) await sleep(26);
+  }
+  cur.remove();
+}
+async function play(ev) {
+  const feed = $('feed');
+  feed.querySelectorAll('.typing').forEach(t => t.remove());
+  if (ev.type === 'start') {
+    renderPresence(ev.staff);
+    feed.insertAdjacentHTML('beforeend', `<div class="roundlbl">AGENDA · ${ev.question.replace(/</g,'&lt;')}</div>`);
+    return;
+  }
+  if (ev.type === 'notice') {
+    feed.insertAdjacentHTML('beforeend', `<div class="notice"><div class="nh">🔔 ${t('Chief of staff')}</div>${ev.noticed ? `<div>${ev.noticed.replace(/</g,'&lt;')}</div>` : ''}${ev.why_now ? `<div class="nw">${t('why now')}: ${ev.why_now.replace(/</g,'&lt;')}</div>` : ''}</div>`);
+    feed.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' }); sfx.tick();
+    return;
+  }
+  if (ev.type === 'autopilot') {
+    feed.insertAdjacentHTML('beforeend', `<div class="roundlbl" style="color:var(--accent)">AUTOPILOT · ${ev.topic ? ev.topic.replace(/</g,'&lt;') : ev.status}</div>`);
+    return;
+  }
+  if (ev.type === 'round') {
+    feed.insertAdjacentHTML('beforeend', `<div class="roundlbl">${ev.round} · ${ev.label}</div>`);
+    return;
+  }
+  if (ev.type === 'speaking') {
+    setActive(ev.seat.id); sfx.speak();
+    feed.insertAdjacentHTML('beforeend', `<div class="typing">${ev.seat.name} ${t('is speaking')}<span class="dots"><i></i><i></i><i></i></span></div>`);
+    feed.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    return;
+  }
+  if (ev.type === 'msg') {
+    setActive(ev.seat.id);
+    const cls = ev.seat.id === 'chair' ? 'chair' : ev.seat.id === 'redteam' ? 'redteam' : '';
+    const col = ev.seat.id === 'chair' ? '#e8b44f' : ev.seat.id === 'redteam' ? '#e25c5c' : colorOf(ev.seat);
+    feed.insertAdjacentHTML('beforeend', `<div class="bub ${cls}">
+      <div class="av" style="background:${col}">${initials(ev.seat)}</div>
+      <div class="body"><div class="who" style="color:${col}">${ev.seat.name.toUpperCase()} · ${ev.seat.id}</div>
+      <div class="txt"></div></div></div>`);
+    const txtEl = feed.lastElementChild.querySelector('.txt');
+    feed.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    await typewrite(txtEl, ev.text);
+    return;
+  }
+  if (ev.type === 'done') {
+    setActive(null); stopClock(); sfx.verdict();
+    const vc = $('vc');
+    vc.className = 'verdictcard' + (ev.survives ? '' : ' down');
+    vc.style.display = 'block';
+    LAST_MINUTES = (ev.minutesPath || '').split('/').pop();
+    const ringCol = ev.survives ? 'var(--accent)' : 'var(--red)';
+    vc.innerHTML = `<div style="display:flex; gap:22px; align-items:center">
+        <div class="confring">
+          <svg width="104" height="104" viewBox="0 0 104 104">
+            <circle cx="52" cy="52" r="46" fill="none" stroke="var(--line)" stroke-width="7"/>
+            <circle id="ringarc" cx="52" cy="52" r="46" fill="none" stroke="${ringCol}" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="289.0" stroke-dashoffset="289.0" transform="rotate(-90 52 52)" style="transition:stroke-dashoffset 1.1s ease-out"/>
+          </svg>
+          <div class="confring-n"><span id="confn">0</span><i>%</i></div>
+        </div>
+        <div style="flex:1">
+          <h3>${ev.survives ? t('VERDICT CONFIRMED') : t('VERDICT DOWNGRADED — RED TEAM')}</h3>
+          <div class="sub" style="margin-top:6px">${t('confidence · review')} ${ev.review} · ${ev.secs}s · ${t('recorded to ledger')}</div>
+          <div style="margin-top:14px"><button class="btn" id="execbtn" style="background:var(--green); color:#0b0d11">▶ ${t('Execute this verdict')}</button></div>
+        </div>
+      </div>`;
+    $('execbtn').onclick = async () => {
+      $('execbtn').disabled = true; $('execbtn').textContent = t('Filing plan…');
+      await fetch('/api/queue/add', { method: 'POST', body: JSON.stringify({ file: LAST_MINUTES }) });
+      show('approvals'); refresh();
+    };
+    vc.scrollIntoView({ behavior: 'smooth' });
+    requestAnimationFrame(() => { const arc = $('ringarc'); if (arc) arc.style.strokeDashoffset = (289.0 * (1 - ev.confidence / 100)).toFixed(1); });
+    let n = 0;
+    const cnt = setInterval(() => { n = Math.min(n + 2, ev.confidence); $('confn').textContent = n; if (n >= ev.confidence) clearInterval(cnt); }, 24);
+    return;
+  }
+  if (ev.type === 'exec') {
+    const ef = $('execfeed'); ef.style.display = 'block';
+    renderExec(ef, ev);
+    return;
+  }
+  if (ev.type === 'error') {
+    stopClock();
+    feed.insertAdjacentHTML('beforeend', `<div class="roundlbl" style="color:var(--red)">ERROR · ${ev.message}</div>`);
+  }
+}
+
+let LAST_MINUTES = null;
+async function openPlan(file) {
+  if (!file) return;
+  $('plan-summary').textContent = 'Drafting plan…';
+  $('plan-steps').innerHTML = ''; $('plan-deliv').textContent = ''; $('plan-risk').textContent = ''; $('plan-held').textContent = '';
+  plandlg.showModal();
+  const plan = await (await fetch('/api/plan', { method: 'POST', body: JSON.stringify({ file }) })).json();
+  $('plan-summary').textContent = plan.summary;
+  $('plan-steps').innerHTML = plan.steps.map(st =>
+    `<div class="planstep ${st.approval ? 'hold' : ''}"><span class="n">${st.n}</span><span>${st.do.replace(/</g,'&lt;')}${st.approval ? ' ⏸ (will NOT auto-run)' : ''}</span></div>`).join('');
+  $('plan-deliv').textContent = plan.deliverable;
+  $('plan-risk').textContent = plan.risk;
+  const held = plan.steps.filter(st => st.approval);
+  if (held.length) $('plan-held').textContent = `⏸ ${held.length} step(s) need your explicit approval and are excluded from this run.`;
+  $('plan-approve').onclick = async () => {
+    plandlg.close();
+    $('execfeed').style.display = 'block';
+    $('execfeed').innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
+    const res = await fetch('/api/execute', { method: 'POST', body: JSON.stringify({ plan }) });
+    const rd = res.body.getReader(); const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (chunk.startsWith('data: ')) play(JSON.parse(chunk.slice(6)));
+      }
+    }
+  };
+}
+
+async function runStream(url, payload) {
+  $('go').disabled = true;
+  $('feed').innerHTML = ''; $('vc').style.display = 'none';
+  $('meetclock').textContent = '00:00';
+  startClock();
+  const res = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+  const rd = res.body.getReader(); const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await rd.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+      if (chunk.startsWith('data: ')) enqueue(JSON.parse(chunk.slice(6)));
+    }
+  }
+  $('go').disabled = false;
+}
+$('go').onclick = () => { const q = $('q').value.trim(); if (q) runStream('/api/meeting', { question: q }); };
+
+async function loadLedger() {
+  const { rows, stats } = await (await fetch('/api/ledger')).json();
+  if (!rows || !rows.length) { $('ledger').innerHTML = '<p class="sub" style="margin-top:16px">No decisions yet. Convene your first meeting.</p>'; return; }
+  const today = new Date().toISOString().slice(0, 10);
+  const avgTxt = stats.avg == null ? '—' : ('.' + String(Math.round(stats.avg * 1000)).padStart(3, '0'));
+  const esc = s => (s || '').replace(/</g, '&lt;');
+  const head = `<div class="card" style="display:flex; gap:28px; align-items:center; margin-bottom:18px; background:var(--card2)">
+    <div><div style="font-family:var(--mono); font-size:38px; font-weight:800; color:var(--accent); line-height:1">${avgTxt}</div><div class="sub" style="margin:0">batting average</div></div>
+    <div style="display:flex; gap:20px">
+      <div><div style="font-size:20px; font-weight:700; color:#3ecf8e">${stats.hits}</div><div class="sub" style="margin:0">hit</div></div>
+      <div><div style="font-size:20px; font-weight:700; color:#ff6b6b">${stats.misses}</div><div class="sub" style="margin:0">miss</div></div>
+      <div><div style="font-size:20px; font-weight:700; color:var(--dim)">${stats.pending}</div><div class="sub" style="margin:0">pending</div></div>
+    </div></div>`;
+  const body = `<table><tr><th>date</th><th>decision</th><th>conf</th><th>review</th><th>outcome</th></tr>` +
+    rows.map(r => {
+      const due = r.outcome === 'pending' && r.review && r.review <= today;
+      const oc = r.outcome === 'hit' ? '<span class="pill ok">✓ hit</span>'
+        : r.outcome === 'miss' ? '<span class="pill down">✗ miss</span>'
+        : `<span style="display:inline-flex; gap:5px">
+             <button class="btn ghost score" data-row="${r.row}" data-oc="hit" style="padding:3px 9px; font-size:11px; color:#3ecf8e">✓</button>
+             <button class="btn ghost score" data-row="${r.row}" data-oc="miss" style="padding:3px 9px; font-size:11px; color:#ff6b6b">✗</button>
+           </span>`;
+      return `<tr${due ? ' style="background:rgba(255,200,80,.06)"' : ''}>
+        <td style="white-space:nowrap">${r.date}</td><td>${esc(r.decision)}</td><td>${r.conf}</td>
+        <td style="white-space:nowrap; color:${due ? 'var(--accent)' : 'var(--dim)'}">${r.review}${due ? ' • due' : ''}</td>
+        <td>${oc}</td></tr>`;
+    }).join('') + '</table>';
+  $('ledger').innerHTML = head + body;
+  applyLang(LANG);
+  document.querySelectorAll('#ledger .score').forEach(b => b.onclick = async () => {
+    await fetch('/api/ledger/score', { method: 'POST', body: JSON.stringify({ row: +b.dataset.row, outcome: b.dataset.oc }) });
+    loadLedger();
+  });
+}
+
+async function loadReports() {
+  const { list } = await (await fetch('/api/minutes')).json();
+  $('report-body').style.display = 'none';
+  $('reports').innerHTML = list.length ? `<table><tr><th>question</th><th>result</th></tr>` +
+    list.map(r => `<tr style="cursor:pointer" data-f="${r.file}"><td>${r.question.replace(/</g,'&lt;')}</td><td style="white-space:nowrap; font-family:var(--mono); font-size:11px; color:var(--dim)">${r.meta}</td><td><button class="btn ghost" data-exec="${r.file}" style="padding:5px 10px; font-size:11px">▶</button></td></tr>`).join('') + '</table>'
+    : '<p class="sub" style="margin-top:16px">No reports yet. Convene a meeting or hit Autopilot.</p>';
+  applyLang(LANG);
+  document.querySelectorAll('#reports [data-exec]').forEach(b => b.onclick = async e => {
+    e.stopPropagation(); b.textContent = '…';
+    await fetch('/api/queue/add', { method: 'POST', body: JSON.stringify({ file: b.dataset.exec }) });
+    show('approvals'); refresh();
+  });
+  document.querySelectorAll('#reports tr[data-f]').forEach(tr => tr.onclick = async () => {
+    const { md } = await (await fetch('/api/minutes?f=' + encodeURIComponent(tr.dataset.f))).json();
+    const el = $('report-body'); el.textContent = md; el.style.display = 'block';
+    el.scrollIntoView({ behavior: 'smooth' });
+  });
+}
+
+async function saveAp() {
+  const v = +$('ap').value;
+  await fetch('/api/autopilot-config', { method: 'POST', body: JSON.stringify({ enabled: v > 0, intervalMin: v || 60 }) });
+  refresh();
+}
+$('ap').onchange = saveAp;
+
+let _qSeen = new Set();
+async function loadQueue() {
+  const { queue } = await (await fetch('/api/queue')).json();
+  const firstQ = _qSeen.size === 0;
+  const clip = (s, n) => { s = (s || '').replace(/</g, '&lt;'); return s.length > n ? s.slice(0, n) + '…' : s; };
+  $('queue').innerHTML = queue.length ? queue.map(it => {
+    const steps = it.plan.steps || [];
+    const holds = steps.filter(s => s.approval).length;
+    return `
+    <div class="card ${!firstQ && !_qSeen.has(it.id) ? 'justin' : ''}" style="margin-top:14px; background:var(--card2)">
+      <h3 style="font-size:15px; margin-bottom:6px; line-height:1.45">${clip(it.plan.headline || it.plan.summary, 160)}</h3>
+      <div class="sub" style="margin:0 0 4px; font-family:var(--mono); font-size:11px">${steps.length} ${t('steps')} · ${holds} ⏸ ${t('need approval')}</div>
+      <div style="display:flex; gap:10px; margin-top:12px; align-items:center">
+        <button class="btn" data-qx="${it.id}" style="background:var(--green); color:#0b0d11">▶ ${t('Execute')}</button>
+        <button class="btn ghost" data-qd="${it.id}">${t('Decline')}</button>
+        <button class="btn ghost" data-qt="${it.id}" style="margin-left:auto; padding:9px 12px">▾ ${t('details')}</button>
+      </div>
+      <div id="qd-${it.id}" style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:10px">
+        ${steps.map(st => `<div class="planstep ${st.approval ? 'hold' : ''}"><span class="n">${st.n}</span><span>${st.do.replace(/</g,'&lt;')}${st.approval ? ' ⏸' : ''}</span></div>`).join('')}
+        <p class="sub" style="margin-top:8px"><b style="color:var(--ink)">${t('Deliverable')}</b> · ${(it.plan.deliverable||'').replace(/</g,'&lt;')}</p>
+        <p class="sub"><b style="color:var(--red)">${t('Risk')}</b> · ${(it.plan.risk||'').replace(/</g,'&lt;')}</p>
+      </div>
+    </div>`; }).join('') : '<p class="sub" style="margin-top:16px">Queue is empty. Autopilot and ▶ buttons file plans here.</p>';
+  queue.forEach(it => _qSeen.add(it.id));
+  applyLang(LANG);
+  document.querySelectorAll('[data-qt]').forEach(b => b.onclick = () => {
+    const d = $('qd-' + b.dataset.qt); const open = d.style.display === 'block';
+    d.style.display = open ? 'none' : 'block'; b.textContent = (open ? '▾ ' : '▴ ') + t('details');
+  });
+  document.querySelectorAll('[data-qd]').forEach(b => b.onclick = async () => {
+    await fetch('/api/queue/decline', { method: 'POST', body: JSON.stringify({ id: b.dataset.qd }) });
+    loadQueue(); refresh();
+  });
+  document.querySelectorAll('[data-qx]').forEach(b => b.onclick = async () => {
+    b.disabled = true; window._executing = true;
+    const ef = $('qexecfeed'); ef.style.display = 'block'; ef.innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
+    const res = await fetch('/api/queue/execute', { method: 'POST', body: JSON.stringify({ id: b.dataset.qx }) });
+    const rd = res.body.getReader(); const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (chunk.startsWith('data: ')) {
+          const ev = JSON.parse(chunk.slice(6));
+          if (ev.type === 'exec') renderExec(ef, ev);
+        }
+      }
+    }
+    window._executing = false;
+    loadQueue(); refresh();
+  });
+}
+
+// ── i18n — UI labels only; meetings already follow your language ──
+const KO = {
+  'Staff': '직원', 'Boardroom': '회의실', 'Approvals': '승인', 'Reports': '보고서', 'Ledger': '원장', 'Engine': '엔진',
+  'Your staff': '직원', 'Hire a seat': '좌석 채용', '+ Hire seat': '+ 좌석 채용', 'Convene': '소집', 'Cancel': '취소', 'Hire': '채용',
+  'Bring one decision. Your board debates it, rules, and a red team attacks the ruling. ~90 seconds.': '결정 하나를 가져오세요. 이사회가 토론하고 판결하면, 레드팀이 그 판결을 공격합니다. 약 90초.',
+  'Each seat reads your question through a different lens, argues independently, then attacks the others\' weakest claims. Hire seats that match your business — the board is only as sharp as its composition.': '각 좌석은 서로 다른 렌즈로 질문을 읽고, 독립적으로 주장하고, 서로의 약점을 공격합니다. 내 사업에 맞는 좌석을 채용하세요 — 이사회는 구성만큼 날카로워집니다.',
+  'Nothing executes without you. The board files its execution plans here — you press Execute or Decline.': '당신 없이는 아무것도 실행되지 않습니다. 이사회가 실행 계획을 여기에 올려두면, Execute 또는 Decline만 누르세요.',
+  'Every meeting, filed. Autopilot keeps adding to this while you\'re away.': '모든 회의가 정리됩니다. 자리를 비운 동안에도 오토파일럿이 계속 쌓아둡니다.',
+  'Every verdict is recorded with its confidence and review date, then scored against reality. This board keeps a public batting average — the only AI that measures its own judgment.': '모든 판결은 확신도·리뷰일과 함께 기록되고, 나중에 현실과 대조해 채점됩니다. 자기 판단을 측정하는 유일한 AI.',
+  'Credentials are detected automatically from this machine — you only paste a key if nothing is found. Keys are stored locally with file permissions 600 and never displayed.': 'API 키는 이 컴퓨터에서 자동 감지됩니다 — 아무것도 없을 때만 한 번 붙여넣으면 됩니다. 키는 로컬(권한 600)에 저장되고 다시 표시되지 않습니다.',
+  'Assign a model per role — or per employee on the Staff page. Mix freely: chair on Fable 5, seats on Sonnet, a GPT seat alongside.': '역할별로 모델을 배정하세요 — 직원 페이지에서 개별 배정도 됩니다. 의장은 Fable 5, 좌석은 Sonnet, GPT 좌석 혼합도 자유.',
+  'How it works': '사용 방법', 'Models': '모델', 'Decision ledger': '결정 원장', 'Execution plan — approval required': '실행 계획 — 승인 필요',
+  'Autopilot': '오토파일럿', '— the board convenes itself': '— 이사회가 스스로 소집합니다',
+  'plans pile into Approvals — nothing runs without you': '계획은 승인 탭에 쌓입니다 — 당신 없이는 아무것도 실행 안 됨',
+  'every 30 min': '30분마다', 'every hour': '1시간마다', 'every 3 hours': '3시간마다',
+  'Staff tab — give each seat a lens that matches your business. A counsel seat, a growth seat, a CFO.': '직원 탭에서 각 좌석에 내 사업에 맞는 렌즈를 부여하세요. 법무 좌석, 그로스 좌석, CFO.',
+  'Bring one real decision, or hit Autopilot — the board picks its own agenda from your history and keeps working.': '진짜 결정 하나를 가져오거나 오토파일럿을 켜세요 — 이사회가 기록에서 스스로 안건을 찾아 계속 일합니다.',
+  'Every verdict carries a confidence score and a review date. The Ledger scores them against reality — your board keeps a batting average.': '모든 판결에 확신도와 리뷰일이 붙습니다. 원장이 현실과 대조해 채점합니다 — 이사회의 타율이 쌓입니다.',
+  // dynamic / runtime strings
+  'Waking the executor…': '실행기를 깨우는 중…',
+  'held for your approval': '승인 대기 중',
+  'is speaking': '발언 중',
+  'VERDICT CONFIRMED': '판결 확정',
+  'VERDICT DOWNGRADED — RED TEAM': '판결 강등 — 레드팀',
+  'confidence · review': '확신도 · 리뷰',
+  'recorded to ledger': '원장에 기록됨',
+  'Execute this verdict': '이 판결 실행',
+  'Filing plan…': '계획 작성 중…',
+  '▶ Execute': '▶ 실행', 'Execute': '실행', 'Decline': '거절',
+  'Deliverable': '산출물', 'Risk': '리스크',
+  'Queue is empty. Autopilot and ▶ buttons file plans here.': '큐가 비어 있습니다. 오토파일럿과 ▶ 버튼이 여기에 계획을 쌓습니다.',
+  'batting average': '타율', 'hit': '적중', 'miss': '빗나감', 'pending': '대기',
+  'No decisions yet. Convene your first meeting.': '아직 결정이 없습니다. 첫 회의를 소집하세요.',
+  'AUTOPILOT ACTIVITY — the company working on its own': '오토파일럿 활동 — 회사가 스스로 일하는 중',
+  'No reports yet. Convene a meeting or hit Autopilot.': '아직 보고서가 없습니다. 회의를 소집하거나 오토파일럿을 켜세요.',
+  'date': '날짜', 'decision': '결정', 'conf': '확신', 'review': '리뷰', 'outcome': '결과', 'status': '상태', 'question': '질문', 'result': '결과',
+  '• due': '• 도래',
+  'Surprise me': '알아서', 'Your staff': '내 직원',
+  'Chief of staff': '비서실장', 'why now': '지금 이유',
+  'steps': '단계', 'need approval': '승인 필요', 'details': '자세히',
+  'LIVE — working on its own': 'LIVE — 스스로 일하는 중',
+  'Founder': '대표', 'LOCAL ACCESS': '로컬 접속', 'LIVE': '라이브',
+  '🤖 Executor working — real browser, shell, files. Watch below.': '🤖 실행기 작동 중 — 진짜 브라우저·셸·파일. 아래에서 진행 중계.',
+  '✓ Ready — running on Claude Code, no setup. Type a decision below.': '✓ 준비됨 — Claude Code로 작동, 설정 0. 아래에 결정을 입력하세요.',
+  '✓ Ready — API key connected. Type a decision below.': '✓ 준비됨 — API 키 연결됨. 아래에 결정을 입력하세요.',
+  '⚠ Connect a model in Engine (one paste) to start →': '⚠ Engine에서 모델 연결(한 번 붙여넣기) 후 시작 →',
+  'Hire directors. Each reads every decision through one lens.': '이사 채용. 각 이사는 모든 결정을 렌즈 하나로 읽습니다.',
+  'One decision in. Debate, verdict, red-team — ~90s.': '결정 하나 입력. 토론·판결·레드팀 — 약 90초.',
+  'Everything the board wants to do waits here. Execute or Decline.': '이사회가 하려는 모든 일이 여기 대기. Execute 또는 Decline.',
+  'Every verdict scored against reality. The only AI that keeps its own batting average.': '모든 판결을 현실과 대조 채점. 자기 타율을 기록하는 유일한 AI.',
+  'Keys auto-detected from this machine. Pick a model per role.': '이 기계에서 키 자동 감지. 역할별 모델 선택.',
+  'A model per role. Mix freely — chair on Fable, seats on Sonnet, a GPT seat too.': '역할별 모델 하나. 자유 혼합 — 의장 Fable, 좌석 Sonnet, GPT 좌석도.',
+};
+let LANG = localStorage.getItem('br-lang') || 'en';
+function t(en) { return LANG === 'ko' && KO[en] ? KO[en] : en; }
+
+// ── sound — subtle JARVIS-like cues, toggleable ──
+let SFX = localStorage.getItem('br-sfx') !== 'off';
+function beep(freq, dur = 0.08, type = 'sine', gain = 0.04) {
+  if (!SFX) return;
+  try {
+    window._actx = window._actx || new (window.AudioContext || window.webkitAudioContext)();
+    const ac = window._actx, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq; o.connect(g); g.connect(ac.destination);
+    const t0 = ac.currentTime; g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.start(t0); o.stop(t0 + dur);
+  } catch {}
+}
+const sfx = {
+  tick: () => beep(420, 0.05, 'sine', 0.02),
+  speak: () => beep(540, 0.06, 'triangle', 0.028),
+  step: () => beep(360, 0.07, 'sine', 0.03),
+  verdict: () => { beep(523, 0.1, 'sine', 0.05); setTimeout(() => beep(784, 0.16, 'sine', 0.05), 110); },
+  done: () => { beep(659, 0.09, 'sine', 0.04); setTimeout(() => beep(988, 0.18, 'sine', 0.045), 100); },
+};
+$('sfx').textContent = SFX ? '🔊' : '🔇';
+$('sfx').onclick = () => { SFX = !SFX; localStorage.setItem('br-sfx', SFX ? 'on' : 'off'); $('sfx').textContent = SFX ? '🔊' : '🔇'; if (SFX) sfx.tick(); };
+
+// humanize an executor tool call into a calm one-liner (the model's own prose carries the rest)
+function friendlyTool(ev) {
+  const d = ev.detail || '', tn = ev.tool, ko = LANG === 'ko';
+  if (tn === 'Bash') { if (/playwright|chromium/.test(d)) return ko ? '🌐 브라우저로 직접 확인하는 중…' : '🌐 Driving a real browser…'; if (/^node /.test(d)) return ko ? '⚙️ 스크립트 실행 중…' : '⚙️ Running a script…'; return ko ? '⚙️ 작업 실행 중…' : '⚙️ Working in the shell…'; }
+  if (tn === 'Write') return (ko ? '📝 파일 작성: ' : '📝 Writing ') + d.split('/').pop();
+  if (tn === 'Edit') return (ko ? '✏️ 파일 수정: ' : '✏️ Editing ') + d.split('/').pop();
+  if (tn === 'Read') return (ko ? '📖 확인 중: ' : '📖 Reading ') + d.split('/').pop();
+  if (tn === 'Glob' || tn === 'Grep') return ko ? '🔍 찾아보는 중…' : '🔍 Searching…';
+  if (tn === 'WebFetch' || tn === 'WebSearch') return ko ? '🔎 자료 조사 중…' : '🔎 Researching online…';
+  return tn;
+}
+// render one executor event into a feed element, narration-first
+function renderExec(ef, ev) {
+  if (ev.kind === 'say') { ef.insertAdjacentHTML('beforeend', `<div class="say voice">${ev.text.replace(/</g, '&lt;')}</div>`); sfx.speak(); }
+  else if (ev.kind === 'tool') { ef.insertAdjacentHTML('beforeend', `<div class="tl">${friendlyTool(ev).replace(/</g, '&lt;')}</div>`); sfx.step(); }
+  else if (ev.kind === 'done') { ef.insertAdjacentHTML('beforeend', `<div class="res">✔ ${(ev.result || '').replace(/</g, '&lt;')}${ev.held && ev.held.length ? `<br>⏸ ${t('held for your approval')}: ${ev.held.join(' / ').replace(/</g, '&lt;')}` : ''}</div>`); sfx.done(); }
+  ef.scrollTop = ef.scrollHeight;
+}
+
+function applyLang(lang) {
+  LANG = lang;
+  localStorage.setItem('br-lang', lang);
+  // autopilot single select
+  const apSel = $('ap');
+  if (apSel) [...apSel.options].forEach(o => {
+    const map = lang === 'ko'
+      ? { '0': '⚡ 오토파일럿: 끔', '30': '⚡ 오토파일럿: 30분마다', '60': '⚡ 오토파일럿: 1시간마다', '180': '⚡ 오토파일럿: 3시간마다' }
+      : { '0': '⚡ Autopilot: Off', '30': '⚡ Autopilot: every 30 min', '60': '⚡ Autopilot: hourly', '180': '⚡ Autopilot: every 3 h' };
+    if (map[o.value]) o.textContent = map[o.value];
+  });
+  // sidebar nav buttons carry an icon span + text node (+ badge for approvals)
+  const NAV = { office: ['Staff', '직원'], meeting: ['Boardroom', '회의실'], approvals: ['Approvals', '승인'], reports: ['Reports', '보고서'], ledger: ['Ledger', '원장'], setup: ['Engine', '엔진'] };
+  document.querySelectorAll('nav button[data-v]').forEach(b => {
+    const m = NAV[b.dataset.v]; if (!m) return;
+    const tn = [...b.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+    if (tn) tn.textContent = ' ' + (lang === 'ko' ? m[1] : m[0]) + ' ';
+  });
+  $('q').placeholder = lang === 'ko' ? '가격을 20% 올릴까요?' : 'Should I raise prices 20%?';
+  const HERO_I18N = {
+    herotag: ['An AI board that <b>argues</b>, <b>scores itself</b>, and <b>does the work</b>. You just approve.', '<b>토론</b>하고 <b>자기 점수</b>를 매기고 <b>직접 일하는</b> AI 이사회. 당신은 승인만.'],
+    'h-avg': ['batting average', '타율'], 'h-dec': ['decisions made', '내린 결정'], 'h-auto': ['autopilot', '자율운행'],
+    'd-debate': ['⚖️ Debated &amp; red-teamed', '⚖️ 토론+레드팀 검증'], 'd-score': ['📊 Owns its track record', '📊 자기 타율 공개'], 'd-auto': ['🤖 Runs itself — you approve', '🤖 스스로 굴러감 — 승인만'],
+  };
+  document.querySelectorAll('[data-i18n]').forEach(el => { const m = HERO_I18N[el.dataset.i18n]; if (m) el.innerHTML = lang === 'ko' ? m[1] : m[0]; });
+  document.querySelectorAll('nav button, h1, h3, .sub, .btn, label b, span, div').forEach(el => {
+    if (el.hasAttribute('data-i18n') || el.closest('[data-i18n]')) return;
+    if (el.children.length && !['B','SPAN'].includes(el.tagName)) return;
+    const cur = el.textContent.trim();
+    if (lang === 'ko' && KO[cur]) { el.dataset.en = cur; el.textContent = KO[cur]; }
+    else if (lang === 'en' && el.dataset.en) { el.textContent = el.dataset.en; }
+  });
+}
+$('lang').value = localStorage.getItem('br-lang') || 'en';
+$('lang').onchange = () => { applyLang($('lang').value); fetch('/api/config', { method: 'POST', body: JSON.stringify({ lang: $('lang').value }) }).catch(() => {}); };
+setTimeout(() => applyLang($('lang').value), 400);
+
+refresh();
+</script>
+</body>
+</html>
