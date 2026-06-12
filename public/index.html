@@ -358,8 +358,8 @@
     <div class="card">
       <h1>Approvals</h1>
       <p class="sub">Everything the board wants to do waits here. Execute or Decline.</p>
-      <div id="queue"></div>
       <div class="execfeed" id="qexecfeed"></div>
+      <div id="queue"></div>
     </div>
   </section>
 
@@ -1071,6 +1071,7 @@ async function loadQueue() {
   document.querySelectorAll('[data-qx]').forEach(b => b.onclick = async () => {
     b.disabled = true; window._executing = true;
     const ef = $('qexecfeed'); ef.style.display = 'block'; ef.innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
+    ef.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const res = await fetch('/api/queue/execute', { method: 'POST', body: JSON.stringify({ id: b.dataset.qx }) });
     if (res.status === 402) { b.disabled = false; window._executing = false; ef.style.display = 'none'; openUpgrade({ feature: 'execution' }); return; }
     const rd = res.body.getReader(); const dec = new TextDecoder();
@@ -1257,7 +1258,8 @@ function renderExec(ef, ev) {
         </div>
         <pre id="${id}" style="white-space:pre-wrap; padding:12px 14px; margin:0; font-family:var(--sans,inherit); font-size:13px; line-height:1.65; color:var(--ink); max-height:340px; overflow-y:auto">${ev.text.replace(/</g, '&lt;')}</pre>
       </div>`);
-    sfx.done(); ef.scrollTop = ef.scrollHeight; return;
+    sfx.done(); ef.scrollTop = ef.scrollHeight;
+    ef.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
   }
   if (ev.kind === 'say') { ef.insertAdjacentHTML('beforeend', `<div class="say voice">${ev.text.replace(/</g, '&lt;')}</div>`); sfx.speak(); }
   else if (ev.kind === 'tool') { ef.insertAdjacentHTML('beforeend', `<div class="tl">${friendlyTool(ev).replace(/</g, '&lt;')}</div>`); sfx.step(); }
