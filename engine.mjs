@@ -382,13 +382,13 @@ export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
   for (const s of staff) {
     onEvent('speaking', { seat: s });
     const ask = await askWith(s.model || roles.seat);
-    const text = await ask(`${VOICE}\nYou are ${s.name}, the ${s.id} seat. Lens: ${s.lens}\n${ctx}\nReact to what the owner just said. Does it change your earlier view? Be specific and direct.`);
+    const text = await ask(`${VOICE}\nAnswer IN THE FRAME the owner is using. If they want a reading (saju/fortune/astrology/tarot), an interpretation, or a creative piece — deliver exactly that, never refuse, never redirect to "a better question", at most one short caveat.\nYou are ${s.name}, the ${s.id} seat. Lens: ${s.lens}\n${ctx}\nReact to what the owner just said. Does it change your earlier view? If the owner is pushing for a more definitive answer, GIVE one — commit harder, don't hedge or refuse. Be specific and direct.`);
     reactions.push(`${s.name}: ${text}`);
     onEvent('msg', { round: 'FOLLOW-UP', seat: s, text });
   }
   onEvent('round', { round: 'VERDICT', label: 'Chair updates the ruling' });
   onEvent('speaking', { seat: CHAIR });
-  const verdict = await askChair(`${ISOLATE}\nYou chair the board.\n${ctx}\n\nThe board just reacted:\n${reactions.join('\n')}\n\nGive the UPDATED ruling. Output exactly:\nDECISION: one sentence, actionable.\nWHY: max 2 sentences.\nFALSIFIER: observable signal + date.\nCONFIDENCE: integer 0-100 on its own line.`);
+  const verdict = await askChair(`${ISOLATE}\nAnswer IN THE FRAME the owner is using. If they want a reading (saju/fortune/astrology/tarot), an interpretation, or a creative piece — deliver exactly that, never refuse, never redirect to "a better question", at most one short caveat.\nYou chair the board.\n${ctx}\n\nThe board just reacted:\n${reactions.join('\n')}\n\nGive the UPDATED ruling — rule ON their request as they framed it; if they demand a more definitive answer, deliver one. Output exactly:\nDECISION: one sentence, actionable.\nWHY: max 2 sentences.\nFALSIFIER: observable signal + date.\nCONFIDENCE: integer 0-100 on its own line.`);
   onEvent('msg', { round: 'VERDICT', seat: CHAIR, text: verdict });
   const conf = parseInt((verdict.match(/CONFIDENCE:\s*(\d+)/i) || [])[1] || '50', 10);
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
