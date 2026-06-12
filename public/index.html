@@ -542,6 +542,17 @@ function syncBadge() {
 const ACT_ICON = { notice: '🔔', agenda: '🗂', verdict: '⚖️', queued: '📥', error: '⚠️' };
 function ago(iso) { const s = Math.max(0, (Date.now() - new Date(iso)) / 1000); return s < 60 ? `${s | 0}s` : s < 3600 ? `${s / 60 | 0}m` : s < 86400 ? `${s / 3600 | 0}h` : `${s / 86400 | 0}d`; }
 let _actSeen = new Set();
+function plainKeys(s) {
+  if (LANG !== 'ko' || !s) return s;
+  return s.replace(/DECISION:/g, '📌 결정:').replace(/WHY:/g, '이유:')
+    .replace(/ADJUSTED_CONFIDENCE:/g, '재평가 확신도:').replace(/CONFIDENCE:/g, '확신도:')
+    .replace(/FALSIFIER:/g, '이러면 틀린 것:').replace(/ATTACK:/g, '공격:')
+    .replace(/SURVIVES:\s*YES/gi, '버텨냄: 예').replace(/SURVIVES:\s*NO/gi, '버텨냄: 아니오')
+    .replace(/\bCONFIRMED\b/g, '확정').replace(/\bDOWNGRADED\b/g, '흔들림')
+    .replace(/\bUPDATED\b/g, '수정됨').replace(/\bANSWERED\b/g, '답변완료')
+    .replace(/⚙ autopilot/g, '⚙ 자동 회의').replace(/plan queued:/g, '계획 대기:')
+    .replace(/executed:/g, '실행됨:').replace(/answered directly/g, '단독 답변');
+}
 async function loadActivity() {
   let activity; try { activity = (await (await fetch('/api/activity')).json()).activity; } catch { return; }
   const box = $('apfeed');
@@ -554,7 +565,7 @@ async function loadActivity() {
       const isNew = !firstLoad && !_actSeen.has(a.at);
       return `<div class="${isNew ? 'justin' : ''}" style="display:flex; gap:9px; padding:5px 6px; font-size:12.5px; align-items:baseline">
       <span>${ACT_ICON[a.kind] || '•'}</span>
-      <span style="color:var(--ink); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${clip(a.text)}</span>
+      <span style="color:var(--ink); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${clip(plainKeys(a.text))}</span>
       <span style="font-family:var(--mono); font-size:10.5px; color:var(--dim); opacity:.6">${ago(a.at)}</span></div>`;
     }).join('');
   activity.forEach(a => _actSeen.add(a.at));
@@ -760,7 +771,7 @@ async function play(ev) {
     feed.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
     return;
   }
-  if (ev.type === 'msg') {
+  if (ev.type === 'msg') { ev = { ...ev, text: plainKeys(ev.text) };
     setActive(ev.seat.id);
     const cls = ev.seat.id === 'chair' ? 'chair' : ev.seat.id === 'redteam' ? 'redteam' : '';
     const col = ev.seat.id === 'chair' ? '#e8b44f' : ev.seat.id === 'redteam' ? '#e25c5c' : colorOf(ev.seat);
@@ -798,7 +809,7 @@ async function play(ev) {
           <div class="confring-n"><span id="confn">0</span><i>%</i></div>
         </div>
         <div style="flex:1">
-          <h3>${ev.survives ? t('VERDICT CONFIRMED') : t('VERDICT DOWNGRADED — RED TEAM')}</h3>
+          <h3>${ev.survives ? t('Verdict holds — survived the attack') : t('Verdict shaky — the attack found a hole')}</h3>
           <div class="sub" style="margin-top:6px">${t('confidence · review')} ${ev.review} · ${ev.secs}s · ${t('recorded to ledger')}</div>
           <div style="margin-top:14px"><button class="btn" id="execbtn" style="background:var(--green); color:#0b0d11">▶ ${t('Execute this verdict')}</button></div>
         </div>
@@ -1009,7 +1020,7 @@ async function loadReports() {
   const { list } = await (await fetch('/api/minutes')).json();
   $('report-body').style.display = 'none';
   $('reports').innerHTML = list.length ? `<table><tr><th>question</th><th>result</th></tr>` +
-    list.map(r => `<tr style="cursor:pointer" data-f="${r.file}"><td>${r.question.replace(/</g,'&lt;')}</td><td style="white-space:nowrap; font-family:var(--mono); font-size:11px; color:var(--dim)">${r.meta}</td><td><button class="btn ghost" data-exec="${r.file}" style="padding:5px 10px; font-size:11px">▶</button></td></tr>`).join('') + '</table>'
+    list.map(r => `<tr style="cursor:pointer" data-f="${r.file}"><td>${r.question.replace(/</g,'&lt;')}</td><td style="white-space:nowrap; font-family:var(--mono); font-size:11px; color:var(--dim)">${plainKeys(r.meta)}</td><td><button class="btn ghost" data-exec="${r.file}" style="padding:5px 10px; font-size:11px">▶</button></td></tr>`).join('') + '</table>'
     : '<p class="sub" style="margin-top:16px">No reports yet. Convene a meeting or hit Autopilot.</p>';
   applyLang(LANG);
   document.querySelectorAll('#reports [data-exec]').forEach(b => b.onclick = async e => {
@@ -1019,7 +1030,7 @@ async function loadReports() {
   });
   document.querySelectorAll('#reports tr[data-f]').forEach(tr => tr.onclick = async () => {
     const { md } = await (await fetch('/api/minutes?f=' + encodeURIComponent(tr.dataset.f))).json();
-    const el = $('report-body'); el.textContent = md; el.style.display = 'block';
+    const el = $('report-body'); el.textContent = plainKeys(md); el.style.display = 'block';
     el.scrollIntoView({ behavior: 'smooth' });
   });
 }
@@ -1096,39 +1107,39 @@ async function loadQueue() {
 
 // ── i18n — UI labels only; meetings already follow your language ──
 const KO = {
-  'Staff': '직원', 'Boardroom': '회의실', 'Approvals': '승인', 'Reports': '보고서', 'Ledger': '원장', 'Engine': '엔진',
+  'Staff': '직원', 'Boardroom': '회의실', 'Approvals': '승인', 'Reports': '보고서', 'Ledger': '성적표', 'Engine': '엔진',
   'Your staff': '직원', 'Hire a seat': '좌석 채용', '+ Hire seat': '+ 좌석 채용', 'Convene': '소집', 'Cancel': '취소', 'Hire': '채용',
   'Bring one decision. Your board debates it, rules, and a red team attacks the ruling. ~90 seconds.': '결정 하나를 가져오세요. 이사회가 토론하고 판결하면, 레드팀이 그 판결을 공격합니다. 약 90초.',
   'Each seat reads your question through a different lens, argues independently, then attacks the others\' weakest claims. Hire seats that match your business — the board is only as sharp as its composition.': '각 좌석은 서로 다른 렌즈로 질문을 읽고, 독립적으로 주장하고, 서로의 약점을 공격합니다. 내 사업에 맞는 좌석을 채용하세요 — 이사회는 구성만큼 날카로워집니다.',
   'Nothing executes without you. The board files its execution plans here — you press Execute or Decline.': '당신 없이는 아무것도 실행되지 않습니다. 이사회가 실행 계획을 여기에 올려두면, Execute 또는 Decline만 누르세요.',
-  'Every meeting, filed. Autopilot keeps adding to this while you\'re away.': '모든 회의가 정리됩니다. 자리를 비운 동안에도 오토파일럿이 계속 쌓아둡니다.',
+  'Every meeting, filed. Autopilot keeps adding to this while you\'re away.': '모든 회의가 정리됩니다. 자리를 비운 동안에도 자동 회의가 계속 쌓아둡니다.',
   'Every verdict is recorded with its confidence and review date, then scored against reality. This board keeps a public batting average — the only AI that measures its own judgment.': '모든 판결은 확신도·리뷰일과 함께 기록되고, 나중에 현실과 대조해 채점됩니다. 자기 판단을 측정하는 유일한 AI.',
   'Credentials are detected automatically from this machine — you only paste a key if nothing is found. Keys are stored locally with file permissions 600 and never displayed.': 'API 키는 이 컴퓨터에서 자동 감지됩니다 — 아무것도 없을 때만 한 번 붙여넣으면 됩니다. 키는 로컬(권한 600)에 저장되고 다시 표시되지 않습니다.',
   'Assign a model per role — or per employee on the Staff page. Mix freely: chair on Fable 5, seats on Sonnet, a GPT seat alongside.': '역할별로 모델을 배정하세요 — 직원 페이지에서 개별 배정도 됩니다. 의장은 Fable 5, 좌석은 Sonnet, GPT 좌석 혼합도 자유.',
-  'How it works': '사용 방법', 'Models': '모델', 'Decision ledger': '결정 원장', 'Execution plan — approval required': '실행 계획 — 승인 필요',
-  'Autopilot': '오토파일럿', '— the board convenes itself': '— 이사회가 스스로 소집합니다',
+  'How it works': '사용 방법', 'Models': '모델', 'Decision ledger': '결정 성적표', 'Execution plan — approval required': '실행 계획 — 승인 필요',
+  'Autopilot': '자동 회의', '— the board convenes itself': '— 이사회가 스스로 소집합니다',
   'plans pile into Approvals — nothing runs without you': '계획은 승인 탭에 쌓입니다 — 당신 없이는 아무것도 실행 안 됨',
   'every 30 min': '30분마다', 'every hour': '1시간마다', 'every 3 hours': '3시간마다',
   'Staff tab — give each seat a lens that matches your business. A counsel seat, a growth seat, a CFO.': '직원 탭에서 각 좌석에 내 사업에 맞는 렌즈를 부여하세요. 법무 좌석, 그로스 좌석, CFO.',
-  'Bring one real decision, or hit Autopilot — the board picks its own agenda from your history and keeps working.': '진짜 결정 하나를 가져오거나 오토파일럿을 켜세요 — 이사회가 기록에서 스스로 안건을 찾아 계속 일합니다.',
+  'Bring one real decision, or hit Autopilot — the board picks its own agenda from your history and keeps working.': '진짜 결정 하나를 가져오거나 자동 회의를 켜세요 — 이사회가 기록에서 스스로 안건을 찾아 계속 일합니다.',
   'Every verdict carries a confidence score and a review date. The Ledger scores them against reality — your board keeps a batting average.': '모든 판결에 확신도와 리뷰일이 붙습니다. 원장이 현실과 대조해 채점합니다 — 이사회의 타율이 쌓입니다.',
   // dynamic / runtime strings
   'Waking the executor…': '실행기를 깨우는 중…',
   'held for your approval': '승인 대기 중',
   'is speaking': '발언 중',
-  'VERDICT CONFIRMED': '판결 확정',
-  'VERDICT DOWNGRADED — RED TEAM': '판결 강등 — 레드팀',
+  'Verdict holds — survived the attack': '✓ 결론 확정 — 공격에도 살아남음',
+  'Verdict shaky — the attack found a hole': '⚠ 결론 흔들림 — 공격에서 허점 발견',
   'confidence · review': '확신도 · 리뷰',
-  'recorded to ledger': '원장에 기록됨',
+  'recorded to ledger': '성적표에 기록됨',
   'Execute this verdict': '이 판결 실행',
   'Filing plan…': '계획 작성 중…',
   '▶ Execute': '▶ 실행', 'Execute': '실행', 'Decline': '거절',
   'Deliverable': '산출물', 'Risk': '리스크',
   'Queue is empty. Autopilot and ▶ buttons file plans here.': '큐가 비어 있습니다. 오토파일럿과 ▶ 버튼이 여기에 계획을 쌓습니다.',
-  'batting average': '타율', 'hit': '적중', 'miss': '빗나감', 'pending': '대기',
+  'batting average': '적중률', 'hit': '적중', 'miss': '빗나감', 'pending': '대기',
   'No decisions yet. Convene your first meeting.': '아직 결정이 없습니다. 첫 회의를 소집하세요.',
   'AUTOPILOT ACTIVITY — the company working on its own': '오토파일럿 활동 — 회사가 스스로 일하는 중',
-  'No reports yet. Convene a meeting or hit Autopilot.': '아직 보고서가 없습니다. 회의를 소집하거나 오토파일럿을 켜세요.',
+  'No reports yet. Convene a meeting or hit Autopilot.': '아직 보고서가 없습니다. 회의를 소집하거나 자동 회의를 켜세요.',
   'date': '날짜', 'decision': '결정', 'conf': '확신', 'review': '리뷰', 'outcome': '결과', 'status': '상태', 'question': '질문', 'result': '결과',
   '• due': '• 도래',
   'Surprise me': '알아서', 'Your staff': '내 직원',
@@ -1274,12 +1285,12 @@ function applyLang(lang) {
   const apSel = $('ap');
   if (apSel) [...apSel.options].forEach(o => {
     const map = lang === 'ko'
-      ? { '0': '⚡ 오토파일럿: 끔', '30': '⚡ 오토파일럿: 30분마다', '60': '⚡ 오토파일럿: 1시간마다', '180': '⚡ 오토파일럿: 3시간마다' }
+      ? { '0': '⚡ 자동 회의: 끔', '30': '⚡ 자동 회의: 30분마다', '60': '⚡ 자동 회의: 1시간마다', '180': '⚡ 자동 회의: 3시간마다' }
       : { '0': '⚡ Autopilot: Off', '30': '⚡ Autopilot: every 30 min', '60': '⚡ Autopilot: hourly', '180': '⚡ Autopilot: every 3 h' };
     if (map[o.value]) o.textContent = map[o.value];
   });
   // sidebar nav buttons carry an icon span + text node (+ badge for approvals)
-  const NAV = { office: ['Staff', '직원'], meeting: ['Boardroom', '회의실'], approvals: ['Approvals', '승인'], reports: ['Reports', '보고서'], ledger: ['Ledger', '원장'], setup: ['Engine', '엔진'] };
+  const NAV = { office: ['Staff', '직원'], meeting: ['Boardroom', '회의실'], approvals: ['Approvals', '승인'], reports: ['Reports', '보고서'], ledger: ['Ledger', '성적표'], setup: ['Engine', '엔진'] };
   document.querySelectorAll('nav button[data-v]').forEach(b => {
     const m = NAV[b.dataset.v]; if (!m) return;
     const tn = [...b.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
@@ -1289,7 +1300,7 @@ function applyLang(lang) {
   if (typeof renderExamples === 'function' && $('exq') && $('exq').style.display !== 'none') renderExamples();
   const HERO_I18N = {
     herotag: ['An AI board that <b>argues</b>, <b>scores itself</b>, and <b>does the work</b>. You just approve.', '<b>토론</b>하고 <b>자기 점수</b>를 매기고 <b>직접 일하는</b> AI 이사회. 당신은 승인만.'],
-    'h-avg': ['batting average', '타율'], 'h-dec': ['decisions made', '내린 결정'], 'h-auto': ['autopilot', '자율운행'],
+    'h-avg': ['batting average', '적중률'], 'h-dec': ['decisions made', '내린 결정'], 'h-auto': ['autopilot', '자동 회의'],
     'd-debate': ['⚖️ Debated &amp; red-teamed', '⚖️ 토론+레드팀 검증'], 'd-score': ['📊 Owns its track record', '📊 자기 타율 공개'], 'd-auto': ['🤖 Runs itself — you approve', '🤖 스스로 굴러감 — 승인만'],
     askhead: ['Bring a decision to the board ↓', '결정을 이사회에 올리세요 ↓'], asksub: ["Type any decision you're facing, then press Convene. The board debates it live.", '고민 중인 결정을 입력하고 Convene을 누르세요. 이사회가 실시간 토론합니다.'],
     'up-title': ['⬆ Upgrade your boardroom', '⬆ 보드룸 업그레이드'],
