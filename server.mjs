@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME } from './engine.mjs';
+import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
 import { tgSend, tgPoll, tgEnabled, tgCanPoll, tgReply } from './telegram.mjs';
 import { spawn } from 'node:child_process';
 
@@ -137,7 +137,15 @@ const SRV = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       const send = (type, payload) => res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
       try {
-        await runMeeting(b.question, (type, payload) => send(type, payload));
+        if (b.history && String(b.history).trim()) {
+          // keep talking to the board — same seats, prior transcript in context
+          await runFollowUp(b.history, b.question, send);
+        } else {
+          // chief-of-staff triage: decisions get the board, tasks get one specialist
+          const t = await triageQuestion(b.question);
+          if (t.mode === 'direct') await runDirect(b.question, t.title, send);
+          else await runMeeting(b.question, (type, payload) => send(type, payload));
+        }
       } catch (e) {
         send('error', { message: e.message });
       }

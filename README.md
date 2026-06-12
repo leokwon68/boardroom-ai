@@ -32,7 +32,7 @@ Or from source:
 git clone <repo> && cd boardroom && node server.mjs   # → http://localhost:4242
 ```
 
-Zero dependencies. Zero config: if you have Claude Code installed, it just works — no API key. Otherwise paste one key once (Anthropic / OpenAI / Gemini); it's stored locally with 0600 permissions and never displayed again.
+Zero dependencies. Zero config: if you have **Claude Code, Codex CLI, or Gemini CLI** installed, it just works on your existing subscription — no API key. Otherwise paste one key once (Anthropic / OpenAI / Gemini); it's stored locally with 0600 permissions and never displayed again.
 
 - **Staff** — hire seats with lenses that match your business. Mix models per seat (chair on Fable, seats on Sonnet, a GPT seat alongside).
 - **Boardroom** — bring one decision, or flip on Autopilot and let the company run itself.

@@ -1,8 +1,8 @@
 // boardroom engine — the meeting protocol, UI-agnostic.
 // runMeeting() emits events via onEvent(type, payload) so any UI (CLI, web, SSE) can render live.
 import { spawn } from 'node:child_process';
-import { mkdirSync, appendFileSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdirSync, appendFileSync, writeFileSync, existsSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const HOME = join(homedir(), '.boardroom');
@@ -105,11 +105,47 @@ function geminiApi(model, key) {
   };
 }
 
-export function claudeCliAvailable() {
+function cliAvailable(cmd) {
   try {
-    const r = spawn('claude', ['--version'], { stdio: 'ignore' });
+    const r = spawn(cmd, ['--version'], { stdio: 'ignore' });
     return new Promise(res => { r.on('close', c => res(c === 0)); r.on('error', () => res(false)); });
   } catch { return Promise.resolve(false); }
+}
+export function claudeCliAvailable() { return cliAvailable('claude'); }
+export function codexCliAvailable() { return cliAvailable('codex'); }
+export function geminiCliAvailable() { return cliAvailable('gemini'); }
+
+// Codex CLI (ChatGPT subscription) — non-interactive exec; the final message lands in a temp file.
+function codexCli(model) {
+  return prompt => new Promise((resolve, reject) => {
+    const tmp = join(tmpdir(), `br-codex-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.txt`);
+    // run on the CLI's own default model (whatever the user's ChatGPT plan provides);
+    // explicit -m is unreliable across codex versions
+    const p = spawn('codex', ['exec', '--skip-git-repo-check', '--output-last-message', tmp, '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    p.stdin.write(prompt); p.stdin.end();
+    let out = '', err = '';
+    p.stdout.on('data', d => out += d);
+    p.stderr.on('data', d => err += d);
+    p.on('close', code => {
+      let msg = '';
+      try { msg = readFileSync(tmp, 'utf8').trim(); } catch {}
+      try { unlinkSync(tmp); } catch {}
+      if (msg) return resolve(msg);
+      if (code === 0 && out.trim()) return resolve(out.trim());
+      reject(new Error(err.slice(0, 200) || `codex exit ${code}`));
+    });
+  });
+}
+
+// Gemini CLI (Google account) — plain prompt mode.
+function geminiCli(model) {
+  return prompt => new Promise((resolve, reject) => {
+    const p = spawn('gemini', ['-m', model, '-p', prompt], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '', err = '';
+    p.stdout.on('data', d => out += d);
+    p.stderr.on('data', d => err += d);
+    p.on('close', code => code === 0 && out.trim() ? resolve(out.trim()) : reject(new Error(err.slice(0, 200) || `gemini exit ${code}`)));
+  });
 }
 
 // auto-detect credentials — users should never hunt for keys.
@@ -134,8 +170,9 @@ export function detectKeys() {
   };
 }
 
-// 모델 ID 1개 → ask 함수. anthropic = API 키 있으면 직접, 없으면 claude CLI 폴백.
-let _cliOk = null;
+// 모델 ID 1개 → ask 함수. 키 있으면 API 직접, 없으면 그 회사 CLI(구독)로 폴백.
+// claude CLI = Claude 구독, codex CLI = ChatGPT 구독, gemini CLI = Google 계정.
+let _cliOk = null, _codexOk = null, _geminiOk = null;
 export async function askWith(modelId) {
   const keys = detectKeys();
   const provider = providerOf(modelId);
@@ -146,11 +183,15 @@ export async function askWith(modelId) {
     throw new Error(`No Anthropic access for ${modelId} — set ANTHROPIC_API_KEY or install Claude Code`);
   }
   if (provider === 'openai') {
-    if (!keys.openaiKey) throw new Error('No OpenAI credentials found on this machine');
-    return openaiApi(modelId, keys.openaiKey);
+    if (keys.openaiKey) return openaiApi(modelId, keys.openaiKey);
+    if (_codexOk === null) _codexOk = await codexCliAvailable();
+    if (_codexOk) return codexCli(modelId);
+    throw new Error(`No OpenAI access for ${modelId} — set OPENAI_API_KEY or install Codex CLI (npm i -g @openai/codex)`);
   }
-  if (!keys.geminiKey) throw new Error('No Gemini credentials found on this machine');
-  return geminiApi(modelId, keys.geminiKey);
+  if (keys.geminiKey) return geminiApi(modelId, keys.geminiKey);
+  if (_geminiOk === null) _geminiOk = await geminiCliAvailable();
+  if (_geminiOk) return geminiCli(modelId);
+  throw new Error(`No Gemini access for ${modelId} — set GEMINI_API_KEY or install Gemini CLI (npm i -g @google/gemini-cli)`);
 }
 
 export function roleModels() {
@@ -168,7 +209,8 @@ You are speaking OUT LOUD in a live board meeting. Hard rules:
 - Max 55 words. One thought, said well.
 - Talk like a sharp colleague: contractions, direct address ("Mochi, that's backwards"), plain words.
 - NO headers, NO bullet points, NO markdown, NO "POSITION:" labels. Just speech.
-- React to what was actually said. Agree when persuaded — changing your mind under good arguments is strength.`;
+- React to what was actually said. Agree when persuaded — changing your mind under good arguments is strength.
+- Answer the agenda IN ITS OWN FRAME: a reading (saju/tarot/astrology) stays a reading, a review stays a review — never refuse, lecture, or demand a different question.`;
 
 export async function runMeeting(question, onEvent, opts = {}) {
   const staff = opts.staff || loadStaff();
@@ -290,6 +332,70 @@ ADJUSTED_CONFIDENCE: integer 0-100`);
   appendFileSync(ledgerPath, `| ${new Date().toISOString().slice(0, 10)} | ${(divTag + question).slice(0, 60)} | ${(verdict.match(/DECISION:\s*(.*)/i) || [])[1]?.slice(0, 80) || ''} | ${adjConf} | ${status} | ${review} | pending |\n`);
 
   const result = { verdict, red, survives, confidence: adjConf, review, status, minutesPath, secs: Math.round((Date.now() - t0) / 1000) };
+  onEvent('done', result);
+  return result;
+}
+
+// ── chief-of-staff triage — board debate vs single-specialist task ──────
+// BOARD = genuine decision with tradeoffs. DIRECT = lookup, interpretation
+// (saju/astrology), summary, writing, review — one right deliverable, no debate needed.
+export async function triageQuestion(question) {
+  try {
+    const ask = await askWith(roleModels().chair);
+    const out = await ask(`Classify this request for a decision-support product.\nREQUEST: ${String(question).slice(0, 500)}\n\nReply with EXACTLY one line:\n- "BOARD" if it is a genuine decision or judgment call with real tradeoffs where hearing opposing arguments helps.\n- "DIRECT|<specialist title, 2-3 words, in the request's language>" if it is a lookup, interpretation (saju/fortune/astrology/tarot), explanation, summary, writing task, or review with one right deliverable.`);
+    const m = out.trim().match(/^DIRECT\|(.+)$/im);
+    if (m) return { mode: 'direct', title: m[1].trim().slice(0, 40) };
+    return { mode: 'board', title: '' };
+  } catch { return { mode: 'board', title: '' }; }
+}
+
+// single-specialist path: no debate theater — one agent just does the task
+export async function runDirect(question, title, onEvent) {
+  const t0 = Date.now();
+  const ask = await askWith(roleModels().chair);
+  const name = title || 'Specialist';
+  const seat = { id: 'specialist', name, emoji: '🎯' };
+  onEvent('start', { question, staff: [seat] });
+  onEvent('round', { round: 'TASK', label: `Chief of staff: no debate needed — handled by ${name}` });
+  onEvent('speaking', { seat });
+  const text = await ask(`${ISOLATE}\nYou are "${name}" — the single specialist assigned to this task.\nTASK: ${question}\nDeliver the complete answer in the task's own frame (a reading stays a reading, a summary stays a summary). Match the request's language. Be thorough but tight; no meta-commentary, no refusals, at most one brief caveat if genuinely needed.`);
+  onEvent('msg', { round: 'TASK', seat, text });
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const minutesPath = join(HOME, `${stamp}.md`);
+  writeFileSync(minutesPath, `# Boardroom — ${question}\n\n## ${name}\n\n${text}\n\n_status: ANSWERED_\n`);
+  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true };
+  onEvent('done', result);
+  return result;
+}
+
+// follow-up: the owner pushes back after a verdict; the same board reacts and the chair re-rules
+export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
+  const t0 = Date.now();
+  const staff = opts.staff || loadStaff();
+  const roles = roleModels();
+  const askChair = await askWith(roles.chair);
+  const CHAIR = { id: 'chair', name: 'Chair', emoji: '👑' };
+  onEvent('start', { question: userMsg, staff });
+  onEvent('round', { round: 'FOLLOW-UP', label: 'The board responds' });
+  const ctx = `Earlier, this board met and ruled. Transcript + verdict:\n${String(history).slice(0, 4500)}\n\nThe owner now responds / asks:\n"${userMsg}"`;
+  const reactions = [];
+  for (const s of staff) {
+    onEvent('speaking', { seat: s });
+    const ask = await askWith(s.model || roles.seat);
+    const text = await ask(`${VOICE}\nYou are ${s.name}, the ${s.id} seat. Lens: ${s.lens}\n${ctx}\nReact to what the owner just said. Does it change your earlier view? Be specific and direct.`);
+    reactions.push(`${s.name}: ${text}`);
+    onEvent('msg', { round: 'FOLLOW-UP', seat: s, text });
+  }
+  onEvent('round', { round: 'VERDICT', label: 'Chair updates the ruling' });
+  onEvent('speaking', { seat: CHAIR });
+  const verdict = await askChair(`${ISOLATE}\nYou chair the board.\n${ctx}\n\nThe board just reacted:\n${reactions.join('\n')}\n\nGive the UPDATED ruling. Output exactly:\nDECISION: one sentence, actionable.\nWHY: max 2 sentences.\nFALSIFIER: observable signal + date.\nCONFIDENCE: integer 0-100 on its own line.`);
+  onEvent('msg', { round: 'VERDICT', seat: CHAIR, text: verdict });
+  const conf = parseInt((verdict.match(/CONFIDENCE:\s*(\d+)/i) || [])[1] || '50', 10);
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const review = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const minutesPath = join(HOME, `${stamp}.md`);
+  writeFileSync(minutesPath, `# Boardroom — follow-up: ${userMsg}\n\n${reactions.join('\n\n')}\n\n## Updated verdict\n${verdict}\n`);
+  const result = { verdict, red: '', survives: true, confidence: conf, review, status: 'UPDATED', minutesPath, secs: Math.round((Date.now() - t0) / 1000) };
   onEvent('done', result);
   return result;
 }

@@ -86,7 +86,16 @@
   .ready { margin-top: 4px; font-size: 12.5px; padding: 9px 13px; border-radius: 9px; display: none; }
   .ready.ok { display: block; background: rgba(65,201,142,.09); border: 1px solid rgba(65,201,142,.28); color: var(--green); }
   .ready.warn { display: block; background: rgba(232,180,79,.09); border: 1px solid rgba(232,180,79,.3); color: var(--amber); cursor: pointer; }
-  .askrow { display: flex; gap: 10px; margin-top: 18px; }
+  .askhead { font-size: 19px; font-weight: 800; margin: 6px 0 2px; color: var(--ink); }
+  .asksub { font-size: 13px; color: var(--dim); margin: 0 0 4px; }
+  .askrow { display: flex; gap: 10px; margin-top: 12px; }
+  .exchip { border: 1px solid var(--line); background: var(--card2); color: var(--dim); font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 99px; cursor: pointer; font-family: inherit; transition: .15s; }
+  .exchip:hover { border-color: var(--accent); color: var(--ink); }
+  @media (max-width: 720px) { .exchip { font-size: 13px; padding: 9px 13px; } }
+  .askrow #q { flex: 1; font-size: 16px; padding: 15px 16px; border: 2px solid var(--accent); border-radius: 11px; background: var(--card2); color: var(--ink); }
+  .askrow #q::placeholder { color: var(--dim); opacity: .6; }
+  .askrow #q:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
+  .askrow #go { font-size: 15px; font-weight: 700; padding: 0 22px; }
   .apsel { width: auto; flex: 0 0 auto; background: var(--card2); border: 1px solid var(--line); color: var(--dim); font-weight: 600; font-size: 13px; padding: 0 14px; border-radius: 9px; cursor: pointer; }
   .apsel:focus { border-color: var(--accent); }
   .feed { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
@@ -154,15 +163,93 @@
   .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
   .bub .txt .cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: text-bottom; margin-left: 2px; animation: blink .8s steps(1) infinite; }
   .confbar i { transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
+
+  /* ── atmosphere & motion — the room feels alive ── */
+  body {
+    background:
+      radial-gradient(1100px 500px at 15% -10%, rgba(59,130,246,.07), transparent 60%),
+      radial-gradient(900px 500px at 95% 110%, rgba(232,180,79,.05), transparent 60%),
+      var(--bg);
+  }
+  .brand .mk { background: linear-gradient(135deg, #3b82f6, #7c5cff 60%, #3b82f6); background-size: 200% 200%; animation: mkshift 6s ease infinite; box-shadow: 0 0 18px rgba(59,130,246,.35); }
+  @keyframes mkshift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .card { transition: border-color .25s, box-shadow .25s, transform .25s; }
+  .card:hover { border-color: rgba(59,130,246,.35); box-shadow: 0 6px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(59,130,246,.08); }
+  .btn { transition: filter .15s, transform .1s, box-shadow .2s; }
+  .btn:hover { filter: brightness(1.12); box-shadow: 0 4px 18px rgba(59,130,246,.3); }
+  .btn:active { transform: scale(.97); }
+  .exchip { position: relative; overflow: hidden; }
+  .exchip::after { content: ""; position: absolute; top: 0; left: -80%; width: 60%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.06), transparent); transform: skewX(-20deg); transition: left .5s; }
+  .exchip:hover::after { left: 120%; }
+  .askhead { position: relative; }
+  .askhead::after { content: ""; }
+  .askrow #q { transition: border-color .2s, box-shadow .25s, transform .2s; }
+  .askrow #q:focus { transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(59,130,246,.25), 0 8px 30px rgba(59,130,246,.15); }
+  .roundlbl::after { background: linear-gradient(90deg, var(--line), rgba(59,130,246,.45), var(--line)); background-size: 200% 100%; animation: lblsweep 3.2s linear infinite; }
+  @keyframes lblsweep { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .bub { animation: rise .3s cubic-bezier(.2,.9,.3,1.2); }
+  .bub .av { transition: transform .2s; animation: avpop .35s cubic-bezier(.2,.9,.3,1.4); }
+  @keyframes avpop { from { transform: scale(.4); opacity: 0; } }
+  .presence .pav.active { animation: pulsering 1.4s ease-out infinite; }
+  @keyframes pulsering { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,.5); } 100% { box-shadow: 0 0 0 9px rgba(59,130,246,0); } }
+  .verdictcard { animation: vcin .5s cubic-bezier(.2,.9,.3,1.15); }
+  @keyframes vcin { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+  .confring svg { filter: drop-shadow(0 0 8px rgba(59,130,246,.35)); }
+  .verdictcard:not(.down) .confring svg { animation: ringglow 2.4s ease-in-out infinite; }
+  @keyframes ringglow { 0%,100% { filter: drop-shadow(0 0 6px rgba(65,201,142,.25)); } 50% { filter: drop-shadow(0 0 16px rgba(65,201,142,.55)); } }
+  .cfx { position: absolute; width: 7px; height: 7px; border-radius: 2px; pointer-events: none; animation: cfall var(--d,1.4s) cubic-bezier(.2,.7,.4,1) forwards; z-index: 50; }
+  @keyframes cfall { 0% { opacity: 1; transform: translate(0,0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x,0), var(--y,90px)) rotate(var(--r,200deg)); } }
+  nav button { transition: background .2s, color .2s, transform .15s; }
+  nav button:hover { transform: translateX(2px); }
+  .hstat { transition: transform .2s, border-color .25s; }
+  .hstat:hover { transform: translateY(-2px); border-color: rgba(59,130,246,.4); }
+
+  /* mobile readability + make the agenda input impossible to miss */
+  @media (max-width: 720px) {
+    body { font-size: 16px; overflow-x: hidden; }
+    .app { grid-template-columns: 1fr; }
+    .main { min-width: 0; padding: 14px 14px 40px; }
+    .sidebar { position: static; height: auto; padding: 10px 12px 6px; }
+    .brand { padding: 2px 4px 8px; }
+    nav { display: flex; flex-direction: row; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+    nav button { width: auto; flex: 0 0 auto; font-size: 13px; padding: 8px 12px; white-space: nowrap; }
+    .side-user { display: none; }
+    .side-foot { margin-top: 2px; }
+    .ctrls { gap: 6px; }
+    .hero { margin-bottom: 12px; }
+    .hero-tag { font-size: 16px; line-height: 1.45; }
+    .hero-stats { flex-direction: row; margin-top: 12px; gap: 8px; }
+    .hstat { padding: 10px 10px; min-width: 0; }
+    .hstat .hv { font-size: 17px; }
+    .hstat .hl { font-size: 9px; letter-spacing: .5px; }
+    .hero-diff { display: none; }
+    .askhead { font-size: 23px; margin-top: 4px; }
+    .asksub { font-size: 14px; }
+    .askrow { flex-direction: column; gap: 9px; }
+    .askrow #q { font-size: 17px; padding: 17px 16px; width: 100%; }
+    .askrow #go { width: 100%; padding: 15px; font-size: 17px; }
+    .apsel { width: 100%; padding: 13px; text-align: center; }
+    .bub .txt { font-size: 15.5px; }
+    .bub .who { font-size: 12.5px; }
+    .sub { font-size: 14px; }
+    .verdictcard .txt, #report-body, #ownermd { font-size: 14.5px; }
+  }
+  /* reader font scale (A−/A+) — persists; the board's opinions can be sized up */
+  body.fz2 .bub .txt, body.fz2 .sub, body.fz2 .asksub, body.fz2 .notice, body.fz2 #report-body, body.fz2 #ownermd, body.fz2 .planstep { font-size: 16px; line-height: 1.7; }
+  body.fz2 .bub .who { font-size: 13px; }
+  body.fz2 .askhead { font-size: 22px; }
+  body.fz3 .bub .txt, body.fz3 .sub, body.fz3 .asksub, body.fz3 .notice, body.fz3 #report-body, body.fz3 #ownermd, body.fz3 .planstep { font-size: 18.5px; line-height: 1.75; }
+  body.fz3 .bub .who { font-size: 14px; }
+  body.fz3 .askhead { font-size: 25px; }
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.3.3</span></div>
+    <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.4.0</span></div>
     <nav>
-      <button data-v="office"><span class="ico">👥</span> Staff</button>
       <button data-v="meeting" class="on"><span class="ico">▦</span> Boardroom</button>
+      <button data-v="office"><span class="ico">👥</span> Staff</button>
       <button data-v="approvals"><span class="ico">✓</span> Approvals <span id="qbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
       <button data-v="reports"><span class="ico">📄</span> Reports</button>
       <button data-v="ledger"><span class="ico">📈</span> Ledger</button>
@@ -174,6 +261,8 @@
         <select id="lang" style="flex:1; padding:6px 8px; font-size:12px">
           <option value="en">EN</option><option value="ko">한국어</option>
         </select>
+        <button id="fz" title="text size" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">A<sup style="font-size:9px">+</sup></button>
+        <button id="htbtn" title="how it works" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">?</button>
       </div>
       <div class="side-user"><span class="uav">●</span><div><div class="un">Founder</div><div class="ur">LOCAL ACCESS</div></div></div>
     </div>
@@ -223,10 +312,28 @@
         <span data-i18n="d-auto">🤖 Runs itself — you approve</span>
       </div>
     </div>
+    <div class="card" id="howto" style="display:none; border-color: rgba(59,130,246,.35)">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <h3 style="font-size:15px">🧭 <span data-i18n="ht-title">How Boardroom works</span></h3>
+        <button id="ht-close" style="border:0; background:transparent; color:var(--dim); cursor:pointer; font-size:16px">✕</button>
+      </div>
+      <div class="sub" style="line-height:1.9; margin-top:8px">
+        <div data-i18n="ht-1"><b style="color:var(--ink)">1.</b> Type any decision or task below. The chief of staff routes it — real decisions get a board debate, simple tasks get one specialist.</div>
+        <div data-i18n="ht-2"><b style="color:var(--ink)">2.</b> Three directors argue, a red team attacks, the chair rules with a confidence score.</div>
+        <div data-i18n="ht-3"><b style="color:var(--ink)">3.</b> Like the verdict? Press <b style="color:var(--green)">▶ Execute</b> — a plan lands in <b style="color:var(--ink)">Approvals</b>; approve it and the deliverable is produced (Chairman plans even run for real — posting, deploying).</div>
+        <div data-i18n="ht-4"><b style="color:var(--ink)">4.</b> Every verdict is recorded in the <b style="color:var(--ink)">Ledger</b> and scored against reality later — your board keeps a public batting average.</div>
+        <div data-i18n="ht-5" style="margin-top:6px; color:var(--accent)">💡 After a verdict you can keep talking — push back and the board updates its ruling. Turn on Autopilot and it convenes itself.</div>
+      </div>
+      <button class="btn" id="ht-go" style="margin-top:12px" data-i18n="ht-go">Got it — let's start</button>
+    </div>
     <div class="card">
       <div id="ready" class="ready"></div>
+      <h2 class="askhead" data-i18n="askhead">Bring a decision to the board ↓</h2>
+      <p class="asksub" data-i18n="asksub">Type any decision you're facing, then press Convene. The board debates it live.</p>
+      <div id="usagebar" style="display:none; margin:2px 0 0; font-size:12.5px; color:var(--dim)"></div>
+      <div id="exq" style="display:flex; gap:7px; flex-wrap:wrap; margin:10px 0 2px"></div>
       <div class="askrow">
-        <input id="q" placeholder='Should I raise prices 20%?'>
+        <input id="q" autofocus placeholder='Should I raise prices 20%?'>
         <button class="btn" id="go">Convene</button>
         <select id="ap" class="apsel" title="Autopilot — the board convenes itself on your interests and files plans to Approvals">
           <option value="0">⚡ Autopilot: Off</option>
@@ -288,6 +395,43 @@
   </div>
 </dialog>
 
+<dialog id="upgradedlg" style="max-width:620px">
+  <h3 data-i18n="up-title">⬆ Upgrade your boardroom</h3>
+  <div style="display:flex; gap:12px; margin:14px 0 4px; flex-wrap:wrap">
+    <div style="flex:1; min-width:240px; border:2px solid var(--accent); border-radius:13px; padding:16px; background:var(--card2)">
+      <div style="font-weight:800; font-size:15px">Director</div>
+      <div style="font-size:26px; font-weight:800; color:var(--ink); margin:4px 0 2px">$39<span style="font-size:13px; color:var(--dim); font-weight:600">/mo</span></div>
+      <div style="font-size:11px; color:var(--green); margin-bottom:10px" data-i18n="up-proyr">or $299/yr · save 36%</div>
+      <div class="sub" style="line-height:1.95; font-size:12.5px">
+        <div data-i18n="up-f1">✓ 200 board meetings / month</div>
+        <div data-i18n="up-f2">✓ Keep talking — follow-ups</div>
+        <div data-i18n="up-f3">✓ Opus chair — sharp verdicts</div>
+        <div data-i18n="up-f4">✓ Autopilot every 30 min</div>
+        <div data-i18n="up-f5">✓ 5 board seats</div>
+      </div>
+      <button class="btn upbuy" data-tier="pro" data-interval="month" style="width:100%; margin-top:14px; background:var(--accent); color:#fff" data-i18n="up-choose-pro">Choose Pro</button>
+      <button class="upbuy" data-tier="pro" data-interval="year" style="width:100%; margin-top:7px; background:transparent; border:0; color:var(--dim); font-size:11.5px; cursor:pointer; font-family:inherit" data-i18n="up-payyr">Pay yearly ($299)</button>
+    </div>
+    <div style="flex:1; min-width:240px; border:1px solid var(--amber); border-radius:13px; padding:16px; background:linear-gradient(180deg, rgba(232,180,79,.06), transparent)">
+      <div style="font-weight:800; font-size:15px; color:var(--amber)">Chairman ✦</div>
+      <div style="font-size:26px; font-weight:800; color:var(--ink); margin:4px 0 2px">$149<span style="font-size:13px; color:var(--dim); font-weight:600">/mo</span></div>
+      <div style="font-size:11px; color:var(--dim); margin-bottom:10px" data-i18n="up-maxsub">For people who run on it daily</div>
+      <div class="sub" style="line-height:1.95; font-size:12.5px">
+        <div data-i18n="up-m1">✓ Everything in Director</div>
+        <div data-i18n="up-m4" style="color:var(--amber); font-weight:700">★ Real execution — posts, deploys, does the work</div>
+        <div data-i18n="up-m3">★ Unlimited meetings · autopilot every 10 min</div>
+        <div data-i18n="up-m2">★ Whole board on the top model</div>
+        <div data-i18n="up-m5">★ 8 board seats + early access</div>
+      </div>
+      <button class="btn upbuy" data-tier="max" data-interval="month" style="width:100%; margin-top:14px; background:var(--amber); color:#0b0d11" data-i18n="up-choose-max">Choose Max</button>
+    </div>
+  </div>
+  <div id="upmsg" style="display:none; margin-top:12px; font-size:12.5px; color:var(--amber); line-height:1.6"></div>
+  <div style="display:flex; justify-content:flex-end; margin-top:14px">
+    <button class="btn ghost" onclick="upgradedlg.close()" data-i18n="up-later">Later</button>
+  </div>
+</dialog>
+
 <dialog id="hire">
   <h3>Hire a seat</h3>
   <div class="row"><input id="h-name" placeholder="Name (e.g. Vale)"></div>
@@ -328,16 +472,22 @@ function show(v) {
   if (v === 'ledger') loadLedger();
   if (v === 'reports') loadReports();
   if (v === 'approvals') loadQueue();
+  if (v === 'meeting') { const q = $('q'); if (q) setTimeout(() => q.focus(), 50); }
 }
 
 let _lastQ = 0;
 async function refresh() {
   STATE = await (await fetch('/api/state')).json();
   renderConns(); renderRoles(); renderStaff();
-  $('ap').value = STATE.autopilot.enabled ? String(STATE.autopilot.intervalMin) : '0';
+  // autopilot interval choices follow the plan ladder (Chairman unlocks 10 min)
+  const apSel = $('ap'), apMin = (STATE.perks && STATE.perks.autopilotMin) || (STATE.plan ? 30 : 10);
+  const has10 = [...apSel.options].some(o => o.value === '10');
+  if (apMin <= 10 && !has10) apSel.insertAdjacentHTML('beforeend', '<option value="10">⚡ Autopilot: every 10 min</option>');
+  if (apMin > 10 && has10) [...apSel.options].forEach(o => { if (o.value === '10') o.remove(); });
+  apSel.value = STATE.autopilot.enabled ? String(STATE.autopilot.intervalMin) : '0';
   syncBadge();
   renderReady(); renderHero();
-  loadActivity(); armLive();
+  loadActivity(); armLive(); armAutopilot();
   applyLang(LANG);
 }
 async function renderHero() {
@@ -347,7 +497,25 @@ async function renderHero() {
   } catch {}
   const on = STATE.autopilot && STATE.autopilot.enabled;
   const dot = $('h-auto').querySelector('.livedotmini'); if (dot) dot.style.opacity = on ? '1' : '.2';
-  $('h-auto-t').textContent = on ? (LANG === 'ko' ? '켜짐' : 'live') : (LANG === 'ko' ? '꺼짐' : 'off');
+  $('h-auto-t').textContent = on ? '24/7' : (LANG === 'ko' ? '꺼짐' : 'off');
+  const ub = $('usagebar');
+  if (ub) {
+    if (!STATE.plan) {
+      ub.innerHTML = `<span style="color:var(--accent); font-weight:700">💻 LOCAL</span> · ${t('unlimited meetings')} · ${t('your machine, your brain')}`;
+    } else if (STATE.byok && STATE.plan !== 'max') {
+      ub.innerHTML = `<span style="color:var(--accent); font-weight:700">🔑 ${t('YOUR KEY')}</span> · ${t('unlimited meetings')} · ${t('runs on your own API key')}`;
+    } else if (STATE.plan === 'max') {
+      ub.innerHTML = `<span style="color:var(--amber); font-weight:700">✦ CHAIRMAN</span> · ${t('unlimited meetings')} · ${t('full board on the top model')}`;
+    } else if (STATE.plan === 'pro') {
+      const used = STATE.meetingsUsed || 0, cap = STATE.meetingsCap || 200, left = Math.max(0, cap - used);
+      ub.innerHTML = `<span style="color:var(--green); font-weight:700">● DIRECTOR</span> · <b style="color:var(--ink)">${left}/${cap}</b> ${t('meetings left')} · <a id="upbtn" style="color:var(--amber); cursor:pointer; font-weight:700">✦ ${t('Go Chairman')}</a>`;
+    } else {
+      const used = STATE.meetingsUsed || 0, cap = STATE.meetingsCap || 25, left = Math.max(0, cap - used);
+      ub.innerHTML = `${t('Free plan')} · <b style="color:var(--ink)">${left}/${cap}</b> ${t('meetings left')} · <a id="upbtn" style="color:var(--accent); cursor:pointer; font-weight:700">⬆ ${t('See plans')}</a>`;
+    }
+    const u = $('upbtn'); if (u) u.onclick = () => openUpgrade();
+    ub.style.display = 'block';
+  }
 }
 function renderReady() {
   const r = $('ready'); if (!r) return;
@@ -507,10 +675,13 @@ function renderStaff() {
   }
 }
 async function saveStaff() {
-  await fetch('/api/staff', { method: 'POST', body: JSON.stringify({ staff: STATE.staff }) });
-  renderStaff();
+  const r = await fetch('/api/staff', { method: 'POST', body: JSON.stringify({ staff: STATE.staff }) });
+  if (r.status === 402) { await refresh(); openUpgrade({ feature: 'seats' }); return false; }
+  renderStaff(); return true;
 }
 $('h-save').onclick = async () => {
+  const limit = (STATE.perks && STATE.perks.seats) || 3;
+  if (STATE.staff.length >= limit) { hire.close(); openUpgrade({ feature: 'seats' }); return; }
   const name = $('h-name').value.trim(), role = $('h-role').value.trim(), lens = $('h-lens').value.trim();
   if (!name || !role || !lens) return;
   STATE.staff.push({ id: role.toLowerCase(), name, lens });
@@ -602,12 +773,20 @@ async function play(ev) {
     await typewrite(txtEl, ev.text);
     return;
   }
+  if (ev.type === 'saved') { LAST_MINUTES = ev.id; return; }
+  if (ev.type === 'done' && ev.direct) {
+    // single-agent task: no verdict ring/ledger theater — just the answer + keep-talking box
+    setActive(null); stopClock(); sfx.done();
+    LAST_TRANSCRIPT = (LAST_TRANSCRIPT ? LAST_TRANSCRIPT + '\n\n---\n\n' : '') + (ev.minutes || '');
+    renderFollowBox();
+    return;
+  }
   if (ev.type === 'done') {
     setActive(null); stopClock(); sfx.verdict();
     const vc = $('vc');
     vc.className = 'verdictcard' + (ev.survives ? '' : ' down');
     vc.style.display = 'block';
-    LAST_MINUTES = (ev.minutesPath || '').split('/').pop();
+    if (ev.minutesPath) LAST_MINUTES = ev.minutesPath.split('/').pop();
     const ringCol = ev.survives ? 'var(--accent)' : 'var(--red)';
     vc.innerHTML = `<div style="display:flex; gap:22px; align-items:center">
         <div class="confring">
@@ -630,9 +809,12 @@ async function play(ev) {
       show('approvals'); refresh();
     };
     vc.scrollIntoView({ behavior: 'smooth' });
+    if (ev.survives) setTimeout(() => burstConfetti(vc), 450);
     requestAnimationFrame(() => { const arc = $('ringarc'); if (arc) arc.style.strokeDashoffset = (289.0 * (1 - ev.confidence / 100)).toFixed(1); });
     let n = 0;
     const cnt = setInterval(() => { n = Math.min(n + 2, ev.confidence); $('confn').textContent = n; if (n >= ev.confidence) clearInterval(cnt); }, 24);
+    LAST_TRANSCRIPT = (LAST_TRANSCRIPT ? LAST_TRANSCRIPT + '\n\n---\n\n' : '') + (ev.minutes || '');
+    renderFollowBox();
     return;
   }
   if (ev.type === 'exec') {
@@ -665,6 +847,7 @@ async function openPlan(file) {
     $('execfeed').style.display = 'block';
     $('execfeed').innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
     const res = await fetch('/api/execute', { method: 'POST', body: JSON.stringify({ plan }) });
+    if (res.status === 402) { $('execfeed').style.display = 'none'; openUpgrade({ feature: 'execution' }); return; }
     const rd = res.body.getReader(); const dec = new TextDecoder();
     let buf = '';
     while (true) {
@@ -680,12 +863,22 @@ async function openPlan(file) {
   };
 }
 
-async function runStream(url, payload) {
+async function runStream(url, payload, append) {
   $('go').disabled = true;
-  $('feed').innerHTML = ''; $('vc').style.display = 'none';
+  if (typeof hideHowto === 'function') hideHowto();
+  if (!append) { $('feed').innerHTML = ''; $('vc').style.display = 'none'; }
+  else {
+    $('vc').style.display = 'none';
+    const fb = $('followbox'); if (fb) fb.remove();
+    $('feed').insertAdjacentHTML('beforeend',
+      `<div class="bub" style="flex-direction:row-reverse"><div class="av" style="background:var(--accent); color:#fff">YOU</div>
+       <div class="body" style="background:rgba(59,130,246,.10); border-color:rgba(59,130,246,.3)"><div class="txt">${(payload.question||'').replace(/</g,'&lt;')}</div></div></div>`);
+    $('feed').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
   $('meetclock').textContent = '00:00';
   startClock();
   const res = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+  if (res.status === 402) { stopClock(); $('go').disabled = false; openUpgrade({ capped: true }); return; }
   const rd = res.body.getReader(); const dec = new TextDecoder();
   let buf = '';
   while (true) {
@@ -700,7 +893,82 @@ async function runStream(url, payload) {
   }
   $('go').disabled = false;
 }
-$('go').onclick = () => { const q = $('q').value.trim(); if (q) runStream('/api/meeting', { question: q }); };
+$('go').onclick = () => { const q = $('q').value.trim(); if (q) { LAST_TRANSCRIPT = ''; const ex = $('exq'); if (ex) ex.style.display = 'none'; runStream('/api/meeting', { question: q }); } };
+
+// one-click example decisions — kills the "what do I even type?" blank-page problem
+const EXAMPLES = {
+  en: ['Should I take the job offer or stay?', 'Should I raise my prices 20%?', 'Rent or buy, given my situation?', 'Review my plan: gym 5x/week before work'],
+  ko: ['이직 제안 받았는데, 갈까 말까?', '가격을 20% 올릴까요?', '전세 vs 매매, 지금 뭐가 맞아?', '회사 그만두고 창업에 올인할까?'],
+};
+function renderExamples() {
+  const box = $('exq'); if (!box) return;
+  box.style.display = 'flex';
+  box.innerHTML = (EXAMPLES[LANG] || EXAMPLES.en).map(q => `<button class="exchip">${q}</button>`).join('');
+  box.querySelectorAll('.exchip').forEach(b => b.onclick = () => { $('q').value = b.textContent; $('go').click(); });
+}
+// initial render happens via applyLang() at startup — LANG isn't initialized yet at this point
+
+// keep the conversation going — same board, prior transcript as context
+let LAST_TRANSCRIPT = '';
+function renderFollowBox() {
+  let fb = $('followbox');
+  if (!fb) { fb = document.createElement('div'); fb.id = 'followbox'; $('vc').after(fb); }
+  fb.innerHTML = `<div class="askhead" style="font-size:15px; margin-top:20px">${t('Keep talking to the board')}</div>
+    <p class="asksub">${t('Push back, add context, or ask a follow-up — the same board answers with everything above in mind.')}</p>
+    <div class="askrow"><input id="fq" placeholder="${t('I disagree because… / what about…?')}"><button class="btn" id="fgo">${t('Send')}</button></div>`;
+  $('fgo').onclick = sendFollow;
+  $('fq').addEventListener('keydown', e => { if (e.key === 'Enter') sendFollow(); });
+  $('fq').focus();
+}
+function sendFollow() {
+  const m = ($('fq') && $('fq').value || '').trim(); if (!m) return;
+  runStream('/api/meeting', { question: m, history: LAST_TRANSCRIPT }, true);
+}
+
+// ── billing / Pro upgrade ──
+function openUpgrade(info) {
+  const dlg = $('upgradedlg'); if (!dlg) return;
+  const m = $('upmsg'); m.style.display = 'none'; m.textContent = '';
+  const f = info && (info.feature || (info.capped && 'meetings'));
+  const MSG = {
+    meetings: t('You\'ve hit your meeting limit — upgrade for more.'),
+    execution: t('▶ Real execution is a Chairman perk — the board doesn\'t just advise, it does the work.'),
+    seats: t('Your boardroom is full — Director seats 5, Chairman seats 8.'),
+    autopilot: t('Autopilot is for paid boards — Director every 30 min, Chairman every 10.'),
+  };
+  if (f && MSG[f]) { m.style.display = 'block'; m.textContent = MSG[f]; }
+  if (!dlg.open) dlg.showModal();
+}
+document.querySelectorAll('.upbuy').forEach(btn => btn.onclick = async () => {
+  const tier = btn.dataset.tier, interval = btn.dataset.interval || 'month';
+  document.querySelectorAll('.upbuy').forEach(b => b.disabled = true);
+  const old = btn.textContent; btn.textContent = t('Starting checkout…');
+  try {
+    const j = await (await fetch('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ tier, interval }) })).json();
+    if (j.url) { location.href = j.url; return; }
+    const m = $('upmsg'); m.style.display = 'block'; m.textContent = j.message || t('Checkout is not available yet — try again soon.');
+  } catch { const m = $('upmsg'); m.style.display = 'block'; m.textContent = t('Checkout failed. Please try again.'); }
+  document.querySelectorAll('.upbuy').forEach(b => b.disabled = false); btn.textContent = old;
+});
+// confirm a returning checkout — Stripe (?upgraded=<session_id>) or LemonSqueezy (?ls=success)
+(async () => {
+  const qs = new URLSearchParams(location.search);
+  const sid = qs.get('upgraded');
+  const ls = qs.get('ls') === 'success';
+  if ((!sid || sid === '1') && !ls) return;
+  const payload = ls ? { ls: true } : { sessionId: sid };
+  try {
+    // LemonSqueezy posts the subscription slightly after redirect — retry briefly.
+    let j = { ok: false };
+    for (let i = 0; i < (ls ? 4 : 1); i++) {
+      j = await (await fetch('/api/billing/confirm', { method: 'POST', body: JSON.stringify(payload) })).json();
+      if (j.ok) break;
+      if (ls) await new Promise(r => setTimeout(r, 1500));
+    }
+    history.replaceState({}, '', '/board.html');
+    if (j.ok) { sfx.done(); setTimeout(() => alert(t('🎉 You\'re on Pro — unlimited meetings unlocked.')), 250); refresh(); }
+  } catch {}
+})();
 
 async function loadLedger() {
   const { rows, stats } = await (await fetch('/api/ledger')).json();
@@ -758,10 +1026,14 @@ async function loadReports() {
 
 async function saveAp() {
   const v = +$('ap').value;
-  await fetch('/api/autopilot-config', { method: 'POST', body: JSON.stringify({ enabled: v > 0, intervalMin: v || 60 }) });
+  const r = await fetch('/api/autopilot-config', { method: 'POST', body: JSON.stringify({ enabled: v > 0, intervalMin: v || 60 }) });
+  if (r.status === 402) { $('ap').value = '0'; openUpgrade({ feature: 'autopilot' }); return; }
   refresh();
 }
 $('ap').onchange = saveAp;
+
+// ── autopilot runs in the local server daemon — no tab needed; live poller shows results.
+function armAutopilot() {}
 
 let _qSeen = new Set();
 async function loadQueue() {
@@ -800,6 +1072,7 @@ async function loadQueue() {
     b.disabled = true; window._executing = true;
     const ef = $('qexecfeed'); ef.style.display = 'block'; ef.innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
     const res = await fetch('/api/queue/execute', { method: 'POST', body: JSON.stringify({ id: b.dataset.qx }) });
+    if (res.status === 402) { b.disabled = false; window._executing = false; ef.style.display = 'none'; openUpgrade({ feature: 'execution' }); return; }
     const rd = res.body.getReader(); const dec = new TextDecoder();
     let buf = '';
     while (true) {
@@ -872,6 +1145,28 @@ const KO = {
   'Every verdict scored against reality. The only AI that keeps its own batting average.': '모든 판결을 현실과 대조 채점. 자기 타율을 기록하는 유일한 AI.',
   'Keys auto-detected from this machine. Pick a model per role.': '이 기계에서 키 자동 감지. 역할별 모델 선택.',
   'A model per role. Mix freely — chair on Fable, seats on Sonnet, a GPT seat too.': '역할별 모델 하나. 자유 혼합 — 의장 Fable, 좌석 Sonnet, GPT 좌석도.',
+  'Keep talking to the board': '이사회와 계속 대화하기',
+  'Push back, add context, or ask a follow-up — the same board answers with everything above in mind.': '반박하거나, 맥락을 더하거나, 이어서 물어보세요 — 같은 이사회가 위 내용을 다 기억한 채 답합니다.',
+  'I disagree because… / what about…?': '저는 …라서 반대합니다 / …는 어떤가요?',
+  'Send': '보내기',
+  'unlimited meetings': '무제한 회의',
+  'Free plan': '무료 플랜',
+  'meetings left': '회의 남음',
+  'Upgrade to Pro': 'Pro로 업그레이드',
+  'See plans': '플랜 보기',
+  'Deliverable': '산출물', 'Copy': '복사', 'Copied': '복사됨',
+  'YOUR KEY': '내 키', 'runs on your own API key': '본인 API 키로 무제한',
+  'your machine, your brain': '내 컴퓨터 · 내 두뇌',
+  'Go Chairman': 'Chairman으로',
+  'full board on the top model': '전 좌석 최상위 모델',
+  "You've hit your meeting limit — upgrade for more.": '회의 한도에 도달했습니다 — 업그레이드하면 더 쓸 수 있습니다.',
+  "▶ Real execution is a Chairman perk — the board doesn't just advise, it does the work.": '▶ 진짜 실행은 Chairman 전용 — 이사회가 조언만 하지 않고 직접 일합니다.',
+  'Your boardroom is full — Director seats 5, Chairman seats 8.': '이사회가 꽉 찼습니다 — Director 5석, Chairman 8석.',
+  'Autopilot is for paid boards — Director every 30 min, Chairman every 10.': '자율운행은 유료 플랜 전용 — Director 30분, Chairman 10분 간격.',
+  'Starting checkout…': '결제 시작 중…',
+  'Checkout is not available yet — try again soon.': '결제가 아직 준비 중입니다 — 곧 다시 시도해주세요.',
+  'Checkout failed. Please try again.': '결제 실패. 다시 시도해주세요.',
+  "🎉 You're on Pro — unlimited meetings unlocked.": '🎉 Pro 전환 완료 — 무제한 회의가 열렸습니다.',
 };
 let LANG = localStorage.getItem('br-lang') || 'en';
 function t(en) { return LANG === 'ko' && KO[en] ? KO[en] : en; }
@@ -895,8 +1190,50 @@ const sfx = {
   verdict: () => { beep(523, 0.1, 'sine', 0.05); setTimeout(() => beep(784, 0.16, 'sine', 0.05), 110); },
   done: () => { beep(659, 0.09, 'sine', 0.04); setTimeout(() => beep(988, 0.18, 'sine', 0.045), 100); },
 };
+
+// tiny confetti burst — fired when a verdict survives the red team
+function burstConfetti(host) {
+  const colors = ['#3b82f6', '#41c98e', '#e8b44f', '#7c5cff', '#5ad7e0'];
+  const rect = host.getBoundingClientRect();
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'cfx';
+    p.style.background = colors[i % colors.length];
+    p.style.left = (rect.left + rect.width / 2 + (Math.random() - .5) * 80) + 'px';
+    p.style.top = (rect.top + 30) + 'px';
+    p.style.position = 'fixed';
+    p.style.setProperty('--x', ((Math.random() - .5) * 220) + 'px');
+    p.style.setProperty('--y', (60 + Math.random() * 140) + 'px');
+    p.style.setProperty('--r', (Math.random() * 540 - 270) + 'deg');
+    p.style.setProperty('--d', (1 + Math.random() * .8) + 's');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 2000);
+  }
+}
 $('sfx').textContent = SFX ? '🔊' : '🔇';
 $('sfx').onclick = () => { SFX = !SFX; localStorage.setItem('br-sfx', SFX ? 'on' : 'off'); $('sfx').textContent = SFX ? '🔊' : '🔇'; if (SFX) sfx.tick(); };
+
+// ── reader text size — cycles normal → large → x-large, persists ──
+let FZ = parseInt(localStorage.getItem('br-fz') || '1', 10);
+function applyFz() {
+  document.body.classList.remove('fz1', 'fz2', 'fz3');
+  document.body.classList.add('fz' + FZ);
+  const b = $('fz'); if (b) b.innerHTML = FZ === 1 ? 'A<sup style="font-size:9px">+</sup>' : (FZ === 2 ? 'A<sup style="font-size:11px">+</sup>' : 'A<sup style="font-size:13px">+</sup>');
+}
+if ($('fz')) $('fz').onclick = () => { FZ = FZ >= 3 ? 1 : FZ + 1; localStorage.setItem('br-fz', String(FZ)); applyFz(); if (SFX) sfx.tick(); };
+applyFz();
+
+// ── first-run guide — shows until dismissed or first meeting run; "?" reopens anytime ──
+function showHowto(force) {
+  const h = $('howto'); if (!h) return;
+  const seen = localStorage.getItem('br-howto') === 'done';
+  h.style.display = (force || !seen) ? 'block' : 'none';
+}
+function hideHowto() { localStorage.setItem('br-howto', 'done'); const h = $('howto'); if (h) h.style.display = 'none'; }
+if ($('ht-close')) $('ht-close').onclick = hideHowto;
+if ($('ht-go')) $('ht-go').onclick = () => { hideHowto(); const q = $('q'); if (q) q.focus(); };
+if ($('htbtn')) $('htbtn').onclick = () => { show('meeting'); showHowto(true); $('howto').scrollIntoView({ behavior: 'smooth' }); };
+showHowto(false);
 
 // humanize an executor tool call into a calm one-liner (the model's own prose carries the rest)
 function friendlyTool(ev) {
@@ -911,6 +1248,17 @@ function friendlyTool(ev) {
 }
 // render one executor event into a feed element, narration-first
 function renderExec(ef, ev) {
+  if (ev.kind === 'deliverable') {
+    const id = 'dlv' + Date.now();
+    ef.insertAdjacentHTML('beforeend',
+      `<div style="border:1px solid var(--line); border-radius:10px; margin:10px 0; overflow:hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--card2); font-family:var(--sans,inherit); font-size:12px; font-weight:700; color:var(--accent)">
+          📄 ${t('Deliverable')} <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').textContent).then(()=>{this.textContent='✓ ${t('Copied')}'})" style="border:1px solid var(--line); background:transparent; color:var(--ink); border-radius:7px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:inherit">${t('Copy')}</button>
+        </div>
+        <pre id="${id}" style="white-space:pre-wrap; padding:12px 14px; margin:0; font-family:var(--sans,inherit); font-size:13px; line-height:1.65; color:var(--ink); max-height:340px; overflow-y:auto">${ev.text.replace(/</g, '&lt;')}</pre>
+      </div>`);
+    sfx.done(); ef.scrollTop = ef.scrollHeight; return;
+  }
   if (ev.kind === 'say') { ef.insertAdjacentHTML('beforeend', `<div class="say voice">${ev.text.replace(/</g, '&lt;')}</div>`); sfx.speak(); }
   else if (ev.kind === 'tool') { ef.insertAdjacentHTML('beforeend', `<div class="tl">${friendlyTool(ev).replace(/</g, '&lt;')}</div>`); sfx.step(); }
   else if (ev.kind === 'done') { ef.insertAdjacentHTML('beforeend', `<div class="res">✔ ${(ev.result || '').replace(/</g, '&lt;')}${ev.held && ev.held.length ? `<br>⏸ ${t('held for your approval')}: ${ev.held.join(' / ').replace(/</g, '&lt;')}` : ''}</div>`); sfx.done(); }
@@ -936,10 +1284,34 @@ function applyLang(lang) {
     if (tn) tn.textContent = ' ' + (lang === 'ko' ? m[1] : m[0]) + ' ';
   });
   $('q').placeholder = lang === 'ko' ? '가격을 20% 올릴까요?' : 'Should I raise prices 20%?';
+  if (typeof renderExamples === 'function' && $('exq') && $('exq').style.display !== 'none') renderExamples();
   const HERO_I18N = {
     herotag: ['An AI board that <b>argues</b>, <b>scores itself</b>, and <b>does the work</b>. You just approve.', '<b>토론</b>하고 <b>자기 점수</b>를 매기고 <b>직접 일하는</b> AI 이사회. 당신은 승인만.'],
     'h-avg': ['batting average', '타율'], 'h-dec': ['decisions made', '내린 결정'], 'h-auto': ['autopilot', '자율운행'],
     'd-debate': ['⚖️ Debated &amp; red-teamed', '⚖️ 토론+레드팀 검증'], 'd-score': ['📊 Owns its track record', '📊 자기 타율 공개'], 'd-auto': ['🤖 Runs itself — you approve', '🤖 스스로 굴러감 — 승인만'],
+    askhead: ['Bring a decision to the board ↓', '결정을 이사회에 올리세요 ↓'], asksub: ["Type any decision you're facing, then press Convene. The board debates it live.", '고민 중인 결정을 입력하고 Convene을 누르세요. 이사회가 실시간 토론합니다.'],
+    'up-title': ['⬆ Upgrade your boardroom', '⬆ 보드룸 업그레이드'],
+    'up-f1': ['✓ 200 board meetings / month', '✓ 월 200회 회의'],
+    'up-f2': ['✓ Keep talking — follow-ups', '✓ 계속 대화 — 후속질문'],
+    'up-f3': ['✓ Opus chair — sharp verdicts', '✓ Opus 의장 — 날카로운 판결'],
+    'up-f4': ['✓ Autopilot every 30 min', '✓ 30분마다 자율운행'],
+    'up-f5': ['✓ 5 board seats', '✓ 이사 5석'],
+    'up-proyr': ['or $299/yr · save 36%', '또는 연 $299 · 36% 절약'],
+    'up-maxsub': ['For people who run on it daily', '매일 굴리는 사람용'],
+    'up-m1': ['✓ Everything in Director', '✓ Director 전부'],
+    'up-m2': ['★ Whole board on the top model', '★ 전 좌석 최상위 모델'],
+    'up-m3': ['★ Unlimited meetings · autopilot every 10 min', '★ 무제한 회의 · 10분마다 자율운행'],
+    'up-m4': ['★ Real execution — posts, deploys, does the work', '★ 진짜 실행 — 게시·배포·실작업까지 해줌'],
+    'up-m5': ['★ 8 board seats + early access', '★ 이사 8석 + 신기능 선공개'],
+    'up-choose-pro': ['Choose Director', 'Director 선택'], 'up-choose-max': ['Choose Chairman', 'Chairman 선택'],
+    'ht-title': ['How Boardroom works', 'Boardroom 사용법'],
+    'ht-1': ['<b style="color:var(--ink)">1.</b> Type any decision or task below. The chief of staff routes it — real decisions get a board debate, simple tasks get one specialist.', '<b style="color:var(--ink)">1.</b> 아래에 결정이나 할 일을 입력하세요. 비서실장이 알아서 배정 — 진짜 결정은 이사회 토론, 단순 작업은 전문 에이전트 단독.'],
+    'ht-2': ['<b style="color:var(--ink)">2.</b> Three directors argue, a red team attacks, the chair rules with a confidence score.', '<b style="color:var(--ink)">2.</b> 이사 3명이 논쟁하고 레드팀이 공격, 의장이 확신도와 함께 판결.'],
+    'ht-3': ['<b style="color:var(--ink)">3.</b> Like the verdict? Press <b style="color:var(--green)">▶ Execute</b> — a plan lands in <b style="color:var(--ink)">Approvals</b>; approve it and the deliverable is produced (Chairman plans even run for real — posting, deploying).', '<b style="color:var(--ink)">3.</b> 판결이 맘에 들면 <b style="color:var(--green)">▶ Execute</b> — 계획이 <b style="color:var(--ink)">승인</b>함에 들어가고, 승인하면 산출물이 만들어집니다 (Chairman은 게시·배포 등 진짜 실행까지).'],
+    'ht-4': ['<b style="color:var(--ink)">4.</b> Every verdict is recorded in the <b style="color:var(--ink)">Ledger</b> and scored against reality later — your board keeps a public batting average.', '<b style="color:var(--ink)">4.</b> 모든 판결은 <b style="color:var(--ink)">원장</b>에 기록되고 나중에 현실과 대조해 채점 — 이사회의 타율이 쌓입니다.'],
+    'ht-5': ['💡 After a verdict you can keep talking — push back and the board updates its ruling. Turn on Autopilot and it convenes itself.', '💡 판결 후에도 계속 대화 가능 — 반박하면 이사회가 판결을 갱신합니다. 자율운행을 켜면 스스로 회의를 엽니다.'],
+    'ht-go': ['Got it — let\'s start', '알겠어요 — 시작하기'],
+    'up-payyr': ['Pay yearly ($299)', '연간 결제 ($299)'], 'up-later': ['Later', '나중에'],
   };
   document.querySelectorAll('[data-i18n]').forEach(el => { const m = HERO_I18N[el.dataset.i18n]; if (m) el.innerHTML = lang === 'ko' ? m[1] : m[0]; });
   document.querySelectorAll('nav button, h1, h3, .sub, .btn, label b, span, div').forEach(el => {
@@ -956,5 +1328,6 @@ setTimeout(() => applyLang($('lang').value), 400);
 
 refresh();
 </script>
+
 </body>
 </html>
