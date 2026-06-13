@@ -553,6 +553,24 @@ function plainKeys(s) {
     .replace(/⚙ autopilot/g, '⚙ 자동 회의').replace(/plan queued:/g, '계획 대기:')
     .replace(/executed:/g, '실행됨:').replace(/answered directly/g, '단독 답변');
 }
+// 축1 — "what the board added over a single model" line inside the verdict card.
+// CHANGED = board flipped the answer, SHARPENED = added a caught risk, CONFIRMED = same (honest).
+function deltaHTML(d) {
+  if (!d) return '';
+  const m = d.match(/^\s*(CHANGED|SHARPENED|CONFIRMED)\s*:\s*([\s\S]*)$/i);
+  const tag = m ? m[1].toUpperCase() : 'SHARPENED';
+  const rest = (m ? m[2] : d).trim();
+  const meta = {
+    CHANGED:   { col: '#e25c5c', ko: '단일 모델과 결론이 바뀜', en: 'changed vs a single model' },
+    SHARPENED: { col: '#e8b44f', ko: '단일 모델이 놓친 risk를 잡음', en: 'caught what a single model missed' },
+    CONFIRMED: { col: '#5fae6e', ko: '단일 모델과 같은 결론 — 보드가 검증', en: 'same as a single model — board confirmed it' },
+  }[tag];
+  const label = LANG === 'ko' ? meta.ko : meta.en;
+  return `<div style="margin-top:12px; padding:10px 12px; border-left:3px solid ${meta.col}; background:rgba(255,255,255,.03); border-radius:6px">
+    <div style="font-size:11px; letter-spacing:.04em; color:${meta.col}; font-weight:700; text-transform:uppercase">⚖️ ${label}</div>
+    <div style="margin-top:4px; font-size:13px; line-height:1.45; opacity:.92">${rest.replace(/</g, '&lt;')}</div>
+  </div>`;
+}
 async function loadActivity() {
   let activity; try { activity = (await (await fetch('/api/activity')).json()).activity; } catch { return; }
   const box = $('apfeed');
@@ -811,6 +829,7 @@ async function play(ev) {
         <div style="flex:1">
           <h3>${ev.survives ? t('Verdict holds — survived the attack') : t('Verdict shaky — the attack found a hole')}</h3>
           <div class="sub" style="margin-top:6px">${t('confidence · review')} ${ev.review} · ${ev.secs}s · ${t('recorded to ledger')}</div>
+          ${deltaHTML(ev.delta)}
           <div style="margin-top:14px"><button class="btn" id="execbtn" style="background:var(--green); color:#0b0d11">▶ ${t('Execute this verdict')}</button></div>
         </div>
       </div>`;

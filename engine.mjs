@@ -234,6 +234,14 @@ export async function runMeeting(question, onEvent, opts = {}) {
   const askSeat = st => seatAskMap[st.id];
   const askChair = withLock(await askWith(roles.chair), LOCK);
   const askRed = withLock(await askWith(roles.redteam), LOCK);
+  // 축1 — what a SINGLE model (no debate) would answer, captured in parallel with the
+  // whole meeting (no added wall-clock). Compared at the end so the owner SEES whether
+  // the board earned its keep instead of being slower theater. Honest: may end "same".
+  const soloPromise = askChair(`${ISOLATE}
+Answer like a single AI assistant with no board and no debate — exactly what a normal person gets from one chatbot reply.
+Agenda: "${question}"
+Reply in the agenda's language, one line:
+SOLO: your direct recommendation or answer in one sentence.`).catch(() => '');
   const t0 = Date.now();
   onEvent('start', { question, staff });
   const transcript = [];
@@ -331,6 +339,30 @@ ADJUSTED_CONFIDENCE: integer 0-100`);
   const adjConf = parseInt((red.match(/ADJUSTED_CONFIDENCE:\s*(\d+)/i) || [])[1] || String(conf), 10);
   log(RED, red);
   onEvent('msg', { round: 'RED TEAM', seat: RED, text: red });
+
+  // 축1 diff — did the board change/catch anything the solo answer missed? honest 3-state.
+  const ko = /[가-힣]/.test(String(question));
+  onEvent('round', { round: 'SOLO vs BOARD', label: ko ? '혼자였다면 vs 보드' : 'Solo vs the board' });
+  const solo = (await soloPromise || '').replace(/^SOLO:\s*/i, '').trim();
+  const boardDecision = (verdict.match(/DECISION:\s*(.*)/i) || [])[1] || verdict.slice(0, 160);
+  let delta = '';
+  if (solo) {
+    delta = await askChair(`${ISOLATE}
+A single AI assistant, with no debate, answered this agenda:
+SOLO: "${solo}"
+
+This board then debated it, and a red team attacked the verdict. The board ruled:
+"${boardDecision}" (${status}, confidence ${adjConf}%)
+
+In ONE plain line, in the agenda's language, tell the owner exactly what the board added over the solo answer. Begin with EXACTLY one tag:
+- "CHANGED: " — the board reached a materially different answer than solo; say what flipped and why.
+- "SHARPENED: " — same direction, but the board surfaced a real risk, caveat, or condition the solo missed; name it concretely.
+- "CONFIRMED: " — the board reached essentially the SAME answer; say so honestly. Do NOT invent a difference.
+Be specific and honest. No flattery, no padding.`).catch(() => '');
+  }
+  const DELTA = { id: 'delta', name: ko ? '단일 모델 대비' : 'vs a single model', emoji: '⚖️' };
+  if (delta) { log(DELTA, delta); onEvent('msg', { round: 'SOLO vs BOARD', seat: DELTA, text: delta }); }
+
   const packet = tjoin();
 
   // ledger + minutes
@@ -343,7 +375,7 @@ ADJUSTED_CONFIDENCE: integer 0-100`);
   if (!existsSync(ledgerPath)) appendFileSync(ledgerPath, '| date | question | decision | conf | status | review | outcome |\n|---|---|---|---|---|---|---|\n');
   appendFileSync(ledgerPath, `| ${new Date().toISOString().slice(0, 10)} | ${(divTag + question).slice(0, 60)} | ${(verdict.match(/DECISION:\s*(.*)/i) || [])[1]?.slice(0, 80) || ''} | ${adjConf} | ${status} | ${review} | pending |\n`);
 
-  const result = { verdict, red, survives, confidence: adjConf, review, status, minutesPath, secs: Math.round((Date.now() - t0) / 1000) };
+  const result = { verdict, red, survives, confidence: adjConf, review, status, minutesPath, secs: Math.round((Date.now() - t0) / 1000), solo, delta };
   onEvent('done', result);
   return result;
 }
