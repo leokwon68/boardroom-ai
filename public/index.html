@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boardroom — decision intelligence</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0b0d11">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Boardroom">
 <style>
   :root {
     --bg: #070708; --card: #0d0e11; --card2: #121318; --ink: #ededef; --dim: #8b8f99;
@@ -263,6 +268,7 @@
         </select>
         <button id="fz" title="text size" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">A<sup style="font-size:9px">+</sup></button>
         <button id="htbtn" title="how it works" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">?</button>
+        <button id="pushbtn" title="phone notifications" style="flex:0 0 auto; padding:7px 11px; font-size:13px; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">🔔</button>
       </div>
       <div class="side-user"><span class="uav">●</span><div><div class="un">Founder</div><div class="ur">LOCAL ACCESS</div></div></div>
     </div>
@@ -1357,6 +1363,44 @@ function applyLang(lang) {
 $('lang').value = localStorage.getItem('br-lang') || 'en';
 $('lang').onchange = () => { applyLang($('lang').value); fetch('/api/config', { method: 'POST', body: JSON.stringify({ lang: $('lang').value }) }).catch(() => {}); };
 setTimeout(() => applyLang($('lang').value), 400);
+
+// ── phone notifications (web push) — the AI taps you on the shoulder ──
+// register the service worker; the 🔔 button asks permission and subscribes.
+let _swReg = null;
+function b64ToU8(s) {
+  const pad = '='.repeat((4 - s.length % 4) % 4);
+  const b = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...b].map(c => c.charCodeAt(0)));
+}
+async function initPush() {
+  const btn = $('pushbtn');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) { if (btn) btn.style.display = 'none'; return; }
+  try { _swReg = await navigator.serviceWorker.register('/sw.js'); } catch { if (btn) btn.style.display = 'none'; return; }
+  const sub = await _swReg.pushManager.getSubscription();
+  paintPush(!!sub);
+}
+function paintPush(on) {
+  const btn = $('pushbtn'); if (!btn) return;
+  btn.textContent = on ? '🔔' : '🔕';
+  btn.style.borderColor = on ? 'var(--green)' : 'var(--line)';
+  btn.title = on ? (LANG === 'ko' ? '폰 알림 켜짐' : 'phone notifications on') : (LANG === 'ko' ? '폰 알림 켜기' : 'turn on phone notifications');
+}
+async function enablePush() {
+  if (!_swReg) await initPush();
+  if (!_swReg) return alert(LANG === 'ko' ? '이 브라우저는 푸시를 지원하지 않아요. iPhone은 홈 화면에 추가한 뒤 다시 시도하세요.' : 'Push not supported here. On iPhone, Add to Home Screen first, then retry.');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return alert(LANG === 'ko' ? '알림이 차단됐어요. 브라우저 설정에서 허용해주세요.' : 'Notifications blocked. Allow them in browser settings.');
+  try {
+    const { key } = await (await fetch('/api/push/key')).json();
+    const sub = await _swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(key) });
+    await fetch('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ sub }) });
+    paintPush(true);
+    // a confirmation tap so the user sees it land on the device
+    _swReg.showNotification('Boardroom', { body: LANG === 'ko' ? '알림 켜짐 — 보드가 일하면 여기로 알려줄게요.' : "You're set — the board will ping you here.", icon: '/icon.png', badge: '/icon.png' });
+  } catch (e) { alert((LANG === 'ko' ? '구독 실패: ' : 'Subscribe failed: ') + e.message); }
+}
+if ($('pushbtn')) $('pushbtn').onclick = enablePush;
+initPush();
 
 refresh();
 </script>

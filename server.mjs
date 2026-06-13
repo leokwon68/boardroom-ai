@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
+import { vapidPublicKey, addSub, pushNotify, pushEnabled } from './push.mjs';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -52,6 +53,20 @@ const SRV = createServer(async (req, res) => {
         headers['set-cookie'] = `br_token=${SHARE_TOKEN}; Path=/; Max-Age=2592000; SameSite=Lax`;
       res.writeHead(200, headers);
       return res.end(readFileSync(join(ROOT, 'public', 'index.html')));
+    }
+    // PWA static — service worker, manifest, icon (needed for lock-screen push)
+    const STATIC = { '/sw.js': 'application/javascript', '/manifest.json': 'application/manifest+json', '/icon.png': 'image/png' };
+    if (STATIC[url.pathname]) {
+      try {
+        res.writeHead(200, { 'content-type': STATIC[url.pathname], 'cache-control': 'no-cache' });
+        return res.end(readFileSync(join(ROOT, 'public', url.pathname.slice(1))));
+      } catch { return json(res, 404, { error: 'not found' }); }
+    }
+    // web push: hand the page the VAPID public key, and store device subscriptions
+    if (url.pathname === '/api/push/key') return json(res, 200, { key: vapidPublicKey() });
+    if (url.pathname === '/api/push/subscribe' && req.method === 'POST') {
+      const b = await body(req);
+      return json(res, 200, { ok: addSub(b.sub || b) });
     }
     if (url.pathname === '/api/state') {
       const cfg = loadConfig();
@@ -269,6 +284,8 @@ function armAutopilot() {
       await _auto((type, payload) => {
         if (type === 'notice') {
           logActivity('notice', `${payload.noticed || ''}${payload.why_now ? ' — ' + payload.why_now : ''}`);
+          const ko = loadConfig().lang === 'ko';
+          pushNotify(ko ? '🔔 보드가 안건을 찾았어요' : '🔔 Your board found an agenda', payload.noticed || '', '/').catch(() => {});
         }
         if (type === 'autopilot' && payload.topic) { topic = payload.topic; logActivity('agenda', payload.status === 'founded a new division' ? payload.topic : `convened — ${payload.topic}`); }
         if (type === 'done' && payload.minutesPath) lastMinutes = payload.minutesPath.split('/').pop();
@@ -280,6 +297,8 @@ function armAutopilot() {
         const it = q[0];   // newest — surfaced in the web activity feed + approval queue
         const dec = (it.plan.headline || (verdict ? verdict.d : topic) || '').slice(0, 140);
         logActivity('await', `approve in the app: ${dec}`);
+        const ko = loadConfig().lang === 'ko';
+        pushNotify(ko ? '📥 승인 대기 — 실행할까요?' : '📥 Approval needed', dec, '/').catch(() => {});
       }
       console.log(`[autopilot] meeting done → queued plan (${lastMinutes})`);
     } catch (e) { logActivity('error', e.message); console.log('[autopilot] error:', e.message); }

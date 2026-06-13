@@ -1,6 +1,6 @@
 {
   "name": "boardroom-ai",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Your one-person company, incorporated. A board of AI directors that learns you, picks its own agenda, debates with evidence, rules with a confidence score, scores itself against reality — then an executor that actually does the work after one click.",
   "bin": {
     "boardroom": "bin/boardroom.mjs"
@@ -16,10 +16,14 @@
     "public/",
     "engine.mjs",
     "server.mjs",
+    "push.mjs",
     "README.md",
     "GUIDE.md",
     "GUIDE.ko.md"
   ],
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
   "engines": {
     "node": ">=18"
   },
