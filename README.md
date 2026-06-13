@@ -16,7 +16,7 @@ results filed → verdicts scored against reality
 - **You stop being the operator.** Other agents wait for instructions. This company finds its own work: it reads your decision history, learns what you care about, and convenes the meetings you would have wanted — including errands ("that filing is due — should we handle it now?").
 - **Decisions you can trust.** No single-model hot takes. Independent seats argue, concede, and change their minds; a red team tries to kill every verdict before it reaches you. Each verdict ships with a confidence score, a falsifier ("here's what proves us wrong, by this date"), and a cheap experiment.
 - **It's accountable.** Every decision lands in a ledger with a review date, then gets scored against what actually happened. Your board keeps a batting average. No other AI measures its own judgment.
-- **Nothing runs without you.** Execution plans pile into an approval queue. Two buttons: Execute or Decline. Risky steps (payments, posting, trades) are always held for the human — forever.
+- **Nothing runs without you.** Execution plans pile into an approval queue. Two buttons: Execute or Decline. Outward-facing steps (sending, posting, deploying) only run when you explicitly approve that plan; payments and trades stay hard-held for a human every time.
 - **It actually executes.** Approved plans run with real tools — a real browser (Playwright), shell, files — and save evidence screenshots of what was done.
 
 ## Quick start

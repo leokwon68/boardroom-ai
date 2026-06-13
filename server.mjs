@@ -6,8 +6,24 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
-import { tgSend, tgPoll, tgEnabled, tgCanPoll, tgReply } from './telegram.mjs';
 import { spawn } from 'node:child_process';
+import { networkInterfaces } from 'node:os';
+import { randomBytes } from 'node:crypto';
+
+// ── phone access: LAN by default, public tunnel with --share (token-gated) ──
+// SHARE_TOKEN is set only in --share mode; when set, every non-loopback
+// request must carry the token (?t= once, then a cookie). Protects the
+// shell + logged-in browser the executor drives. LAN-only mode = no token.
+const SHARE = process.env.BOARDROOM_SHARE === '1';
+const SHARE_TOKEN = SHARE ? (process.env.BOARDROOM_TOKEN || randomBytes(12).toString('hex')) : null;
+const isLoopback = req => { const a = req.socket.remoteAddress || ''; return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1'; };
+function tokenOK(req, url) {
+  if (!SHARE_TOKEN) return true;            // LAN-only mode — trust the local network
+  if (isLoopback(req)) return true;          // the desktop browser we opened ourselves
+  if (url.searchParams.get('t') === SHARE_TOKEN) return true;
+  const cookie = (req.headers.cookie || '').match(/br_token=([^;]+)/);
+  return !!cookie && cookie[1] === SHARE_TOKEN;
+}
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 4242;
@@ -25,8 +41,16 @@ async function body(req) {
 const SRV = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
+    if (!tokenOK(req, url)) {
+      res.writeHead(401, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end('<body style="font-family:system-ui;background:#111;color:#eee;text-align:center;padding:18vh 8vw"><h2>🔒 Boardroom</h2><p>Open the link with its access token (the <code>?t=…</code> from the QR code on your laptop).</p></body>');
+    }
     if (url.pathname === '/' || url.pathname === '/index.html') {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      const headers = { 'content-type': 'text/html; charset=utf-8' };
+      // first valid ?t= visit → remember it in a cookie so deep links stay clean
+      if (SHARE_TOKEN && !isLoopback(req) && url.searchParams.get('t') === SHARE_TOKEN)
+        headers['set-cookie'] = `br_token=${SHARE_TOKEN}; Path=/; Max-Age=2592000; SameSite=Lax`;
+      res.writeHead(200, headers);
       return res.end(readFileSync(join(ROOT, 'public', 'index.html')));
     }
     if (url.pathname === '/api/state') {
@@ -110,7 +134,7 @@ const SRV = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       const send = (type, payload) => res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
       try {
-        await runExecution(item.plan, send);
+        await runExecution(item.plan, send, { approved: true });
         saveQueue(loadQueue().filter(it => it.id !== b.id));
       } catch (e) { send('error', { message: e.message }); }
       return res.end();
@@ -129,7 +153,7 @@ const SRV = createServer(async (req, res) => {
       const b = await body(req);   // b.plan = 승인된 계획 (approval gate는 UI에서 통과)
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       const send = (type, payload) => res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
-      try { await runExecution(b.plan, send); } catch (e) { send('error', { message: e.message }); }
+      try { await runExecution(b.plan, send, { approved: true }); } catch (e) { send('error', { message: e.message }); }
       return res.end();
     }
     if (url.pathname === '/api/meeting' && req.method === 'POST') {
@@ -174,68 +198,59 @@ function start(port, triesLeft = 12) {
   });
   SRV.listen(port, () => {
     const url = `http://localhost:${port}`;
-    console.log(`boardroom → ${url}`);
-    armAutopilot(); armTelegram();
+    console.log(`\nboardroom → ${url}`);
+    console.log('  no API key needed — uses your `claude` CLI subscription.');
+    // phone on the same wifi: type this, no telegram, no setup
+    const ips = lanIPs();
+    if (ips.length) {
+      console.log('\n  📱 phone (same wifi):');
+      for (const ip of ips) console.log(`     http://${ip}:${port}`);
+      showQR(`http://${ips[0]}:${port}`);
+    }
+    armAutopilot();
     if (!process.env.BOARDROOM_NO_OPEN) openBrowser(url);
+    if (SHARE) startTunnel(port);
   });
 }
-start(PORT);
 
-// ── telegram bridge — run the company from your phone (JARVIS parity) ────
-// all messages follow the configured language (config.lang), short, conclusion-first.
-const L = (ko, en) => (loadConfig().lang === 'ko' ? ko : en);
-
-async function handleTg(text, m) {
-  // strip a leading slash so "/회의 주제" works too (slash commands bypass group privacy)
-  text = text.replace(/^\/(meet|회의)\s*/i, '').trim();
-  const low = text.toLowerCase().trim();
-  const reply = (s) => tgReply(m, s);
-  if (['help', '/start', '/help', '도움', '명령'].includes(low))
-    return reply(L('명령:\n• 결정 입력 → 회의\n• status → 승인목록\n• go <id> → 실행\n• no <id> → 거절',
-                   'Commands:\n• type a decision → meeting\n• status → approvals\n• go <id> → execute\n• no <id> → decline'));
-  if (['status', '큐', '상태', '/status'].includes(low)) {
-    const q = loadQueue();
-    if (!q.length) return reply(L('✅ 승인 대기 없음.', '✅ Nothing pending.'));
-    return reply(L('📥 승인대기:\n', '📥 Pending:\n') + q.map(it => `\`${it.id}\` ${it.plan.summary.slice(0, 70)}`).join('\n'));
-  }
-  let mm;
-  if ((mm = low.match(/^(go|ok|approve|승인|실행)\s+(\w+)/))) {
-    const it = loadQueue().find(x => x.id.startsWith(mm[2]));
-    if (!it) return reply(L(`❓ \`${mm[2]}\` 없음. status 확인.`, `❓ No \`${mm[2]}\`. Send status.`));
-    await reply(L(`▶️ 실행 중 \`${it.id}\`…`, `▶️ Executing \`${it.id}\`…`));
-    let last = '';
-    try { await runExecution(it.plan, (_t, p) => { if (p.kind === 'say') last = p.text; if (p.kind === 'done') last = p.result; }); }
-    catch (e) { return reply(L(`⚠️ 실행 오류: ${e.message}`, `⚠️ Error: ${e.message}`)); }
-    saveQueue(loadQueue().filter(x => x.id !== it.id));
-    return reply(L(`✅ 완료 \`${it.id}\`\n${(last || '').slice(0, 220)}`, `✅ Done \`${it.id}\`\n${(last || '').slice(0, 220)}`));
-  }
-  if ((mm = low.match(/^(no|decline|거절|취소)\s+(\w+)/))) {
-    const q = loadQueue(); const it = q.find(x => x.id.startsWith(mm[2]));
-    if (!it) return reply(L(`❓ \`${mm[2]}\` 없음.`, `❓ No \`${mm[2]}\`.`));
-    saveQueue(q.filter(x => x.id !== it.id));
-    return reply(L(`🗑 거절 \`${it.id}\`.`, `🗑 Declined \`${it.id}\`.`));
-  }
-  if (!text) return;
-  // anything else → a decision for the board
-  await reply(L(`🏛 회의 중…`, `🏛 Convening…`));
+// every non-internal IPv4 — the address a phone on the same wifi can reach
+function lanIPs() {
+  const out = [];
+  for (const list of Object.values(networkInterfaces()))
+    for (const ni of list || [])
+      if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address);
+  return out;
+}
+// scannable QR in the terminal if `qrencode` is installed; harmless if not
+function showQR(url) {
   try {
-    const res = await runMeeting(text, () => {}, {});
-    const d = (res.verdict.match(/DECISION:\s*(.*)/i) || [])[1] || res.verdict.slice(0, 160);
-    return reply(`👉 ${d.slice(0, 180)}\n_(${res.confidence}% · ${res.status})_`);
-  } catch (e) { return reply(L(`⚠️ 회의 오류: ${e.message}`, `⚠️ Error: ${e.message}`)); }
+    const p = spawn('qrencode', ['-t', 'ANSIUTF8', url], { stdio: ['ignore', 'inherit', 'ignore'] });
+    p.on('error', () => {});  // qrencode not installed → just skip, URL already printed
+  } catch {}
 }
-
-function armTelegram() {
-  if (!tgEnabled()) { console.log('[telegram] not configured — phone bridge off'); return; }
-  if (tgCanPoll()) {
-    tgPoll(handleTg);
-    tgSend(L('🟢 Boardroom 켜짐. 결정을 보내거나 help.', '🟢 Boardroom online. Send a decision, or help.')).catch(() => {});
-    console.log('[telegram] phone bridge armed (push + commands)');
-  } else {
-    // shared bot (another poller owns getUpdates) — push only, no command loop
-    console.log('[telegram] push-only (shared bot — set a dedicated bot to enable commands)');
-  }
+// public https URL via cloudflared quick tunnel — works from cellular, token-gated
+function startTunnel(port) {
+  console.log('\n  🌐 opening a public tunnel (cloudflared)…');
+  let cf;
+  try { cf = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${port}`], { stdio: ['ignore', 'pipe', 'pipe'] }); }
+  catch { console.log('  ⚠️  cloudflared not found — install: brew install cloudflared'); return; }
+  cf.on('error', () => console.log('  ⚠️  cloudflared not found — install: brew install cloudflared'));
+  let announced = false;
+  const scan = d => {
+    const m = String(d).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+    if (m && !announced) {
+      announced = true;
+      const link = `${m[0]}/?t=${SHARE_TOKEN}`;
+      console.log('\n  🌐 phone (anywhere — keep this laptop on):');
+      console.log(`     ${link}`);
+      console.log('  🔒 this link carries your access token — only share it with yourself.');
+      showQR(link);
+    }
+  };
+  cf.stdout.on('data', scan); cf.stderr.on('data', scan);
+  process.on('exit', () => { try { cf.kill(); } catch {} });
 }
+start(PORT);
 
 // ── autopilot daemon — the company runs itself ──────────────────────────
 // 켜두면: 주기마다 보드가 스스로 안건을 뽑아 회의하고, 실행계획을 승인 큐에 쌓는다.
@@ -254,7 +269,6 @@ function armAutopilot() {
       await _auto((type, payload) => {
         if (type === 'notice') {
           logActivity('notice', `${payload.noticed || ''}${payload.why_now ? ' — ' + payload.why_now : ''}`);
-          tgSend(`🔔 ${(payload.noticed || '').slice(0, 120)}`);   // one line, core only
         }
         if (type === 'autopilot' && payload.topic) { topic = payload.topic; logActivity('agenda', payload.status === 'founded a new division' ? payload.topic : `convened — ${payload.topic}`); }
         if (type === 'done' && payload.minutesPath) lastMinutes = payload.minutesPath.split('/').pop();
@@ -263,10 +277,9 @@ function armAutopilot() {
       if (lastMinutes) {
         const q = await enqueuePlan(lastMinutes);
         logActivity('queued', `plan queued for approval (${q.length} pending)`);
-        const it = q[0];   // newest — conclusion-first, short, single language, plain words
+        const it = q[0];   // newest — surfaced in the web activity feed + approval queue
         const dec = (it.plan.headline || (verdict ? verdict.d : topic) || '').slice(0, 140);
-        tgSend(L(`📥 *승인대기* \`${it.id}\`\n${dec}\n✅ go ${it.id}   ❌ no ${it.id}`,
-                 `📥 *Approve* \`${it.id}\`\n${dec}\n✅ go ${it.id}   ❌ no ${it.id}`));
+        logActivity('await', `approve in the app: ${dec}`);
       }
       console.log(`[autopilot] meeting done → queued plan (${lastMinutes})`);
     } catch (e) { logActivity('error', e.message); console.log('[autopilot] error:', e.message); }

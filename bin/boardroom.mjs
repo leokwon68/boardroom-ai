@@ -15,19 +15,6 @@ import { fileURLToPath } from 'node:url';
 const ARGV = process.argv.slice(2);
 const QUESTION = ARGV.join(' ').trim();
 
-// `npx boardroom`  (no args) or `boardroom serve|web|app` → launch the web product
-if (!QUESTION || ['serve', 'web', 'app', 'ui'].includes(ARGV[0]?.toLowerCase())) {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const server = join(here, '..', 'server.mjs');
-  console.log(`\n  Boardroom — your one-person company, incorporated.\n  starting…\n`);
-  // server picks a free port (graceful fallback) and opens the browser itself
-  const srv = spawn(process.execPath, [server], { stdio: 'inherit', env: { ...process.env } });
-  srv.on('close', code => process.exit(code || 0));
-  process.on('SIGINT', () => srv.kill('SIGINT'));
-} else {
-  main().catch(e => { console.error(C.red('boardroom error: ') + e.message); process.exit(1); });
-}
-
 const WORKER_MODEL = process.env.BOARDROOM_WORKER_MODEL || 'sonnet';
 const CHAIR_MODEL = process.env.BOARDROOM_CHAIR_MODEL || 'opus';
 const HOME = join(homedir(), '.boardroom');
@@ -147,4 +134,21 @@ ADJUSTED_CONFIDENCE: integer 0-100 on its own line.`);
   console.log('\n  ' + C.red(red.match(/ATTACK:[\s\S]*?(?=SURVIVES:)/i)?.[0].trim().split('\n').join('\n  ') || ''));
   console.log('\n  ' + C.dim(`confidence ${adjConf}/100 · review ${review} · minutes ${minutesPath}`));
   console.log('  ' + C.dim(`ledger: ${ledgerPath} — verdicts get scored. This AI keeps its batting average.`) + '\n');
+}
+
+// ── dispatch (must run after all const/function declarations above) ──
+// `npx boardroom` (no args) or `boardroom serve|web|app` → launch the web product
+// `boardroom share` / `--share` → also open a public tunnel (token-gated) for the phone
+const WANT_SHARE = ARGV.some(a => /^--?share$/i.test(a));
+const REST = ARGV.filter(a => !/^--?share$/i.test(a));
+if (!REST.join(' ').trim() || ['serve', 'web', 'app', 'ui', 'share'].includes(REST[0]?.toLowerCase())) {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const server = join(here, '..', 'server.mjs');
+  console.log(`\n  Boardroom — your one-person company, incorporated.\n  starting…\n`);
+  // server picks a free port (graceful fallback) and opens the browser itself
+  const srv = spawn(process.execPath, [server], { stdio: 'inherit', env: { ...process.env, ...(WANT_SHARE ? { BOARDROOM_SHARE: '1' } : {}) } });
+  srv.on('close', code => process.exit(code || 0));
+  process.on('SIGINT', () => srv.kill('SIGINT'));
+} else {
+  main().catch(e => { console.error(C.red('boardroom error: ') + e.message); process.exit(1); });
 }
