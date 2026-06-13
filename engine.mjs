@@ -206,22 +206,34 @@ export function roleModels() {
 const ISOLATE = `IMPORTANT: Base your reasoning ONLY on this prompt's contents. Ignore any memory, project files, or prior context about specific people, companies, or products — none of it belongs to this meeting's client.`;
 const VOICE = `${ISOLATE}
 You are speaking OUT LOUD in a live board meeting. Hard rules:
+- LANGUAGE: speak 100% in the language the agenda is written in. Korean agenda → every word in Korean (no English sentences mixed in; product names may stay).
 - Max 55 words. One thought, said well.
 - Talk like a sharp colleague: contractions, direct address ("Mochi, that's backwards"), plain words.
 - NO headers, NO bullet points, NO markdown, NO "POSITION:" labels. Just speech.
 - React to what was actually said. Agree when persuaded — changing your mind under good arguments is strength.
 - Answer the agenda IN ITS OWN FRAME: a reading (saju/tarot/astrology) stays a reading, a review stays a review — never refuse, lecture, or demand a different question.`;
 
+// forceful, model-agnostic language lock derived from the agenda text.
+// every seat prompt gets this prepended — a GPT/Sonnet seat that ignores a
+// mid-prompt bullet still obeys a loud first line. Korean board → 0 English seats.
+function langLock(text) {
+  if (/[가-힣]/.test(String(text))) return `LANGUAGE LOCK: Respond ENTIRELY in Korean (한국어). Not one English sentence. Product/brand names may stay in English; everything else — every sentence — is Korean. This overrides any English in your role description.\n\n`;
+  return '';
+}
+// wrap an ask fn so the lock is always prepended
+const withLock = (fn, lock) => (prompt => fn(lock + prompt));
+
 export async function runMeeting(question, onEvent, opts = {}) {
   const staff = opts.staff || loadStaff();
   const divTag = opts.division ? `[${opts.division}] ` : '';
   const roles = roleModels();
+  const LOCK = langLock(question);
   // per-seat models: staff[].model overrides the seat default (chief=fable, seats=sonnet, gpt mix — all valid)
   const seatAskMap = {};
-  for (const st of staff) seatAskMap[st.id] = await askWith(st.model || roles.seat);
+  for (const st of staff) seatAskMap[st.id] = withLock(await askWith(st.model || roles.seat), LOCK);
   const askSeat = st => seatAskMap[st.id];
-  const askChair = await askWith(roles.chair);
-  const askRed = await askWith(roles.redteam);
+  const askChair = withLock(await askWith(roles.chair), LOCK);
+  const askRed = withLock(await askWith(roles.redteam), LOCK);
   const t0 = Date.now();
   onEvent('start', { question, staff });
   const transcript = [];
@@ -292,7 +304,7 @@ Agenda: "${question}"
 Full meeting transcript:
 ${tjoin()}
 
-Output exactly this shape (plain language, no markdown):
+Output exactly this shape (plain language, no markdown). Keep the labels in English, but write the content after each label in the same language as the agenda (Korean agenda → Korean content):
 DECISION: one sentence, actionable.
 WHY: max 2 sentences — which argument from the floor carried, and what you overruled.
 FALSIFIER: the observable signal + date that proves this wrong.
@@ -312,7 +324,7 @@ Agenda: "${question}"
 VERDICT:
 ${verdict}
 
-Give your strongest realistic failure scenario as natural speech, then exactly these two lines:
+Speak in the same language as the agenda (Korean agenda → Korean). Give your strongest realistic failure scenario as natural speech, then exactly these two lines (labels in English):
 SURVIVES: YES or NO
 ADJUSTED_CONFIDENCE: integer 0-100`);
   const survives = /SURVIVES:\s*YES/i.test(red);
@@ -342,7 +354,7 @@ ADJUSTED_CONFIDENCE: integer 0-100`);
 export async function triageQuestion(question) {
   try {
     const ask = await askWith(roleModels().chair);
-    const out = await ask(`Classify this request for a decision-support product.\nREQUEST: ${String(question).slice(0, 500)}\n\nReply with EXACTLY one line:\n- "BOARD" if it is a genuine decision or judgment call with real tradeoffs where hearing opposing arguments helps.\n- "DIRECT|<specialist title, 2-3 words, in the request's language>" if it is a lookup, interpretation (saju/fortune/astrology/tarot), explanation, summary, writing task, or review with one right deliverable.`);
+    const out = await ask(`Classify this request for a decision-support product.\nREQUEST: ${String(question).slice(0, 500)}\n\nDecide between two paths:\n- DIRECT = there is one obvious right deliverable and nothing to weigh: a lookup, an interpretation (saju/fortune/astrology/tarot), an explanation, a summary, a writing task, or a review. These ALWAYS go DIRECT even if phrased as a question.\n- BOARD = a genuine decision or judgment call with real tradeoffs where hearing opposing arguments helps: which new business / product to start, what to build next, strategy, prioritization, go/no-go, pricing, hiring, or any "what should I do / which option" where reasonable people would disagree.\n\nReply with EXACTLY one line:\n- "DIRECT|<specialist title, 2-3 words, in the request's language>" for the DIRECT case.\n- "BOARD" for the BOARD case. If a request is a decision about what to do and you are unsure which path, choose BOARD.`);
     const m = out.trim().match(/^DIRECT\|(.+)$/im);
     if (m) return { mode: 'direct', title: m[1].trim().slice(0, 40) };
     return { mode: 'board', title: '' };
@@ -352,7 +364,7 @@ export async function triageQuestion(question) {
 // single-specialist path: no debate theater — one agent just does the task
 export async function runDirect(question, title, onEvent) {
   const t0 = Date.now();
-  const ask = await askWith(roleModels().chair);
+  const ask = withLock(await askWith(roleModels().chair), langLock(question));
   const name = title || 'Specialist';
   const seat = { id: 'specialist', name, emoji: '🎯' };
   onEvent('start', { question, staff: [seat] });
@@ -373,7 +385,8 @@ export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
   const t0 = Date.now();
   const staff = opts.staff || loadStaff();
   const roles = roleModels();
-  const askChair = await askWith(roles.chair);
+  const FU_LOCK = langLock(userMsg);
+  const askChair = withLock(await askWith(roles.chair), FU_LOCK);
   const CHAIR = { id: 'chair', name: 'Chair', emoji: '👑' };
   onEvent('start', { question: userMsg, staff });
   onEvent('round', { round: 'FOLLOW-UP', label: 'The board responds' });
@@ -381,7 +394,7 @@ export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
   const reactions = [];
   for (const s of staff) {
     onEvent('speaking', { seat: s });
-    const ask = await askWith(s.model || roles.seat);
+    const ask = withLock(await askWith(s.model || roles.seat), FU_LOCK);
     const text = await ask(`${VOICE}\nAnswer IN THE FRAME the owner is using. If they want a reading (saju/fortune/astrology/tarot), an interpretation, or a creative piece — deliver exactly that, never refuse, never redirect to "a better question", at most one short caveat.\nYou are ${s.name}, the ${s.id} seat. Lens: ${s.lens}\n${ctx}\nReact to what the owner just said. Does it change your earlier view? If the owner is pushing for a more definitive answer, GIVE one — commit harder, don't hedge or refuse. Be specific and direct.`);
     reactions.push(`${s.name}: ${text}`);
     onEvent('msg', { round: 'FOLLOW-UP', seat: s, text });
@@ -521,6 +534,7 @@ function ensureMcpConfig() {
 
 export async function planExecution(minutesFile) {
   const md = readMinutes(minutesFile);
+  const planKo = /[가-힣]/.test(md);
   const ask = await askWith(roleModels().chair);
   const raw = await ask(`${ISOLATE}
 You are the executive officer of a board. A meeting just concluded. Turn its verdict into a concrete execution plan.
@@ -533,7 +547,8 @@ Rules:
 - Steps must be executable by an autonomous agent with: shell, file read/write, web search/fetch, node (drives a REAL browser via playwright), and common CLIs.
 - If the verdict is about doing something in the real world (an admin procedure, an application, a lookup on an official site, monitoring), the steps should USE THE BROWSER to actually do or prepare it — navigate, fill what can be filled, save evidence screenshots — stopping at any login/identity/payment wall, which becomes an "approval": true step describing exactly what the human must do.
 - Anything irreversible or outward-facing (sending messages, payments, posting publicly, buying assets) must be tagged "approval": true — it will NOT run, it gets queued for the human.
-- Same language as the minutes.
+- OUTPUT LANGUAGE: ${planKo ? 'Korean' : 'the language of the minutes'}. EVERY field — headline, summary, context, every steps[].do, deliverable, risk — must be written in that language, in plain everyday words. Never mix English sentences into Korean output (file names and product names may stay as-is).
+- "approval": true steps are read by the owner as their to-do list. Write each one as a short, self-contained instruction a non-technical person instantly understands: what to send/do, to whom, when, and where the prepared content lives (file name). No parenthetical rule systems, no variant logic dumps — if a choice rule exists, say it in one plain sentence.
 
 - In "context", pre-state every fact the executor should treat as GIVEN so it does not waste tool calls re-deriving them: concrete URLs the verdict named, file/repo paths, counts, prior decisions, and — critically — anything that does NOT exist yet (e.g. "no waitlist site is deployed; do not search for one"). This is the single biggest lever on execution speed.
 
@@ -550,16 +565,22 @@ Output strict JSON only:
   return { minutesFile, ...JSON.parse(jsonStr) };
 }
 
-export function runExecution(plan, onEvent) {
+export function runExecution(plan, onEvent, opts = {}) {
   return new Promise(resolve => {
-    const safe = plan.steps.filter(st => !st.approval);
-    const held = plan.steps.filter(st => st.approval);
-    const isKo = /[가-힣]/.test((plan.summary || '') + (plan.context || '') + safe.map(s => s.do).join(''));
+    // opts.approved = the owner explicitly approved this plan (Approve & run / queue 승인 / telegram 승인)
+    // → approval-tagged steps run for real too. Without it they stay held (legacy safety).
+    const approvedAll = !!opts.approved;
+    const safe = approvedAll ? plan.steps : plan.steps.filter(st => !st.approval);
+    const held = approvedAll ? [] : plan.steps.filter(st => st.approval);
+    const hadOutward = plan.steps.some(st => st.approval);
+    const isKo = /[가-힣]/.test((plan.headline || '') + (plan.summary || '') + (plan.context || '') + safe.map(s => s.do).join(''));
     const lang = isKo ? 'Korean' : 'English';
     const task = `You are an autonomous executor working in ${WORKSPACE} (your working directory — keep ALL files in it).
 Execute this approved plan, step by step. Be pragmatic, verify your own work, stop when the deliverable exists.
 
-NARRATE LIKE A CALM ASSISTANT — in ${lang}. Before each action, write ONE short first-person sentence saying what you're about to do and why, in plain ${lang} (e.g. "${isKo ? '결제 게이트웨이 해지 절차를 확인하려고 공식 페이지를 열어보겠습니다.' : 'Opening the official page to check the cancellation terms.'}"). Keep it human and brief — no raw command dumps in your prose. These sentences are shown live to the owner as your voice.
+NARRATE LIKE A CALM ASSISTANT — in ${lang}. Before each action, write ONE short first-person sentence saying what you're about to do and why, in plain ${lang} (e.g. "${isKo ? '결제 게이트웨이 해지 절차를 확인하려고 공식 페이지를 열어보겠습니다.' : 'Opening the official page to check the cancellation terms.'}"). Keep it human and brief — no raw command dumps in your prose. These sentences are shown live to the owner as your voice.${isKo ? ' 모든 내레이션은 100% 한국어 — 영어 문장 금지.' : ''}
+
+DELIVERABLE LANGUAGE: every file you create for the owner to read, send, or use (messages, drafts, reports, trackers, checklists) must be written in ${lang}. Code, commands, and config stay as code.
 
 YOU HAVE A REAL BROWSER via the Playwright MCP tools (mcp__playwright__browser_navigate / _click / _type / _snapshot / _take_screenshot etc.). It runs on a PERSISTENT profile where the owner is already logged into their sites (X, Instagram, Naver, etc.). Use these tools to ACT for real — navigate, fill, click, publish, post — like a person. Save screenshots as proof. (You can also write node Playwright scripts for headless scraping, but for posting/acting on logged-in sites use the MCP browser.)
 
@@ -575,11 +596,12 @@ HARD LIMITS — violating these is failure:
 
 PLAN: ${plan.summary}
 STEPS:
-${safe.map(st => `${st.n}. ${st.do}`).join('\n')}
+${safe.map(st => `${st.n}. ${st.do}${st.approval ? ' [owner-approved outward action — actually do it]' : ''}`).join('\n')}
 ${held.length ? `\nDO NOT do these (queued for human approval): ${held.map(st => st.do).join(' / ')}` : ''}
+${approvedAll && hadOutward ? `\nThe owner EXPLICITLY APPROVED this whole plan, including the outward-facing steps (sending, posting, publishing). Execute them for real via the logged-in MCP browser. Only stop at a login/2FA/payment wall you cannot pass — then write what's left into ./HANDOFF.md.` : ''}
 DELIVERABLE: ${plan.deliverable}
 
-When finished, print exactly one final line: RESULT: <one sentence — what now exists and where>.`;
+When finished, print exactly one final line: RESULT: <one sentence in ${lang} — what now exists and where>.`;
     ensureMcpConfig();
     const p = spawn('claude', [
       '-p', '--output-format', 'stream-json', '--verbose',
@@ -595,7 +617,7 @@ When finished, print exactly one final line: RESULT: <one sentence — what now 
       '--model', 'sonnet',
     ], { cwd: WORKSPACE, stdio: ['pipe', 'pipe', 'pipe'] });
     // runaway/hang guard — kill after 12 min
-    const killer = setTimeout(() => { try { p.kill('SIGKILL'); } catch {} onEvent('exec', { kind: 'say', text: '⏱ execution timed out (12 min) — killed' }); }, 12 * 60 * 1000);
+    const killer = setTimeout(() => { try { p.kill('SIGKILL'); } catch {} onEvent('exec', { kind: 'say', text: isKo ? '⏱ 실행이 12분을 넘겨 중단했습니다' : '⏱ execution timed out (12 min) — killed' }); }, 12 * 60 * 1000);
     let finalText = '', buf = '';
     p.stdout.on('data', d => {
       buf += d;
