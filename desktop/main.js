@@ -2,7 +2,7 @@
 // program: lives in the menu bar, runs the autonomous board 24/7, opens the
 // UI in its own window. Execution needs this machine (claude CLI + your
 // logged-in browser), which is exactly why this is a desktop app, not iOS.
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, Notification } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -47,6 +47,38 @@ function openWindow() {
   win.on('closed', () => { win = null; });
 }
 
+// Web Push doesn't work inside Electron (no FCM backend), so the desktop app
+// gets NATIVE OS notifications instead — this is what makes "works while you
+// sleep" real on the desktop. Poll the activity feed; ping on new agenda/approval.
+let _lastNotifAt = null;
+function startNotifications() {
+  const poll = () => {
+    http.get(`${URL}api/activity`, res => {
+      let b = ''; res.on('data', d => b += d); res.on('end', () => {
+        try {
+          const { activity } = JSON.parse(b);
+          if (!activity || !activity.length) return;
+          if (_lastNotifAt === null) { _lastNotifAt = activity[0].at; return; }  // skip the backlog on first poll
+          const fresh = activity.filter(a => a.at > _lastNotifAt && (a.kind === 'await' || a.kind === 'notice'));
+          _lastNotifAt = activity[0].at;
+          for (const a of fresh.reverse()) {
+            if (!Notification.isSupported()) break;
+            const n = new Notification({
+              title: a.kind === 'await' ? '📥 승인 대기 — 실행할까요?' : '🔔 보드가 안건을 찾았어요',
+              body: (a.text || '').replace(/^approve in the app:\s*/, '').slice(0, 180),
+              silent: false,
+            });
+            n.on('click', openWindow);
+            n.show();
+          }
+        } catch {}
+      });
+    }).on('error', () => {});
+  };
+  poll();
+  setInterval(poll, 30000);
+}
+
 function buildTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'trayTemplate.png'));
   icon.setTemplateImage(true);   // macOS auto-inverts for light/dark menu bar
@@ -69,7 +101,7 @@ else {
     if (app.dock) app.dock.hide();   // pure menu-bar app, no dock icon
     startServer();
     buildTray();
-    waitForServer(openWindow);
+    waitForServer(() => { openWindow(); startNotifications(); });
   });
   app.on('window-all-closed', () => {});   // stay alive in the menu bar
   app.on('activate', openWindow);
