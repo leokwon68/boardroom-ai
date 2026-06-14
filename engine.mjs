@@ -581,6 +581,8 @@ MEETING MINUTES:
 ${md.slice(0, 9000)}
 
 Rules:
+- DELIVER FINISHED THINGS, NOT DEVELOPER HOMEWORK. The owner is a busy non-technical founder. The deliverable must be something they USE directly with zero setup — a written message/email ready to send, a designed image, a filled-in document, a posted/published thing, completed research with a clear answer, a ready-to-copy table. NEVER make the deliverable a script, code file (.mjs/.py), .env, config, webhook setup, runbook, or "install/connect X" — those are chores the owner can't do and won't want. If the only way to satisfy the verdict is building software or asking the owner to configure a service, the plan is WRONG: reframe to the actual outcome the owner wants done-for-them, or mark it a human-approval step in one plain sentence. Zero-setup is the rule.
+- PREFER VISUAL/CONCRETE over walls of text. If a graphic, image, or simple visual would serve better than a long document, plan to create that.
 - Plan ONLY what the verdict + experiment call for. No scope creep.
 - Steps must be executable by an autonomous agent with: shell, file read/write, web search/fetch, node (drives a REAL browser via playwright), and common CLIs.
 - If the verdict is about doing something in the real world (an admin procedure, an application, a lookup on an official site, monitoring), the steps should USE THE BROWSER to actually do or prepare it — navigate, fill what can be filled, save evidence screenshots — stopping at any login/identity/payment wall, which becomes an "approval": true step describing exactly what the human must do.
