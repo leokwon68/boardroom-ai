@@ -17,7 +17,7 @@
     "appId": "ai.boardroom.desktop",
     "productName": "Boardroom",
     "directories": { "output": "dist" },
-    "files": ["main.js", "trayTemplate.png", "trayTemplate@2x.png", "icon.png", "icon.icns"],
+    "files": ["main.js", "trayTemplate.png", "trayTemplate@2x.png", "icon.png", "icon.icns", "entitlements.mac.plist"],
     "extraResources": [
       { "from": "../server.mjs", "to": "server/server.mjs" },
       { "from": "../engine.mjs", "to": "server/engine.mjs" },
@@ -29,7 +29,11 @@
       "category": "public.app-category.productivity",
       "icon": "icon.icns",
       "target": "dmg",
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": true
     }
   }
 }
