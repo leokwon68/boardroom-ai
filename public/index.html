@@ -299,9 +299,9 @@
   <aside class="sidebar">
     <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.4.3</span></div>
     <nav>
-      <button data-v="today" class="on"><span class="ico">☀</span> <span data-i18n>Today</span> <span id="tbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
-      <button data-v="meeting"><span class="ico">▦</span> <span data-i18n>Ask the board</span></button>
-      <button data-v="connect"><span class="ico">🔌</span> <span data-i18n>Connections</span></button>
+      <button data-v="today" class="on"><span class="ico">☀</span> <span>Today</span> <span id="tbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
+      <button data-v="meeting"><span class="ico">▦</span> <span>Ask the board</span></button>
+      <button data-v="connect"><span class="ico">🔌</span> <span>Connections</span></button>
       <button data-v="office"><span class="ico">👥</span> Staff</button>
       <button data-v="approvals"><span class="ico">✓</span> Approvals <span id="qbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
       <button data-v="reports"><span class="ico">📄</span> Reports</button>
@@ -329,7 +329,7 @@
 
   <section class="view" id="v-connect">
     <div style="max-width:760px">
-      <h1>🔌 <span data-i18n>Connections</span></h1>
+      <h1>🔌 <span>Connections</span></h1>
       <p class="sub" id="connect-sub">연결할수록 AI가 해줄 수 있는 일이 늘어나요. 켜기만 하면 — 당신 계정으로, 당신 크레딧으로 직접 일합니다.</p>
       <div id="connectgrid" class="conngrid"></div>
     </div>
@@ -1198,6 +1198,7 @@ async function loadQueue() {
 // ── i18n — UI labels only; meetings already follow your language ──
 const KO = {
   'Staff': '직원', 'Boardroom': '회의실', 'Approvals': '승인', 'Reports': '보고서', 'Ledger': '성적표', 'Engine': '엔진',
+  'Today': '오늘', 'Connections': '연결', 'Ask the board': '이사회에 묻기',
   'Your staff': '직원', 'Hire a seat': '좌석 채용', '+ Hire seat': '+ 좌석 채용', 'Convene': '소집', 'Cancel': '취소', 'Hire': '채용',
   'Bring one decision. Your board debates it, rules, and a red team attacks the ruling. ~90 seconds.': '결정 하나를 가져오세요. 이사회가 토론하고 판결하면, 레드팀이 그 판결을 공격합니다. 약 90초.',
   'Each seat reads your question through a different lens, argues independently, then attacks the others\' weakest claims. Hire seats that match your business — the board is only as sharp as its composition.': '각 좌석은 서로 다른 렌즈로 질문을 읽고, 독립적으로 주장하고, 서로의 약점을 공격합니다. 내 사업에 맞는 좌석을 채용하세요 — 이사회는 구성만큼 날카로워집니다.',
@@ -1270,7 +1271,7 @@ const KO = {
   'Checkout failed. Please try again.': '결제 실패. 다시 시도해주세요.',
   "🎉 You're on Pro — unlimited meetings unlocked.": '🎉 Pro 전환 완료 — 무제한 회의가 열렸습니다.',
 };
-let LANG = localStorage.getItem('br-lang') || 'en';
+let LANG = localStorage.getItem('br-lang') || 'ko';
 function t(en) { return LANG === 'ko' && KO[en] ? KO[en] : en; }
 
 // ── sound — subtle JARVIS-like cues, toggleable ──
@@ -1425,7 +1426,7 @@ function applyLang(lang) {
     else if (lang === 'en' && el.dataset.en) { el.textContent = el.dataset.en; }
   });
 }
-$('lang').value = localStorage.getItem('br-lang') || 'en';
+$('lang').value = localStorage.getItem('br-lang') || 'ko';
 $('lang').onchange = () => { applyLang($('lang').value); fetch('/api/config', { method: 'POST', body: JSON.stringify({ lang: $('lang').value }) }).catch(() => {}); };
 setTimeout(() => applyLang($('lang').value), 400);
 
