@@ -6,3 +6,4 @@ variant-designs
 desktop/dist
 desktop/.env.local
 .env.local
+desktop/.signing
