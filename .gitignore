@@ -4,3 +4,5 @@ node_modules
 .DS_Store
 variant-designs
 desktop/dist
+desktop/.env.local
+.env.local
