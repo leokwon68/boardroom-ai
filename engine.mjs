@@ -627,6 +627,7 @@ ${plan.context || '(none provided)'}
 
 HARD LIMITS — violating these is failure:
 - Work ONLY inside your working directory. Never read or touch files outside it.
+- NEVER INVENT IDENTITY OR FACTS. Do not make up the owner's name, the company/brand name, a signature, email, phone, address, price, date, count, or any personal/account detail. If a deliverable needs one and it is not in KNOWN CONTEXT, write a clearly-labeled placeholder ([내 이름] / [회사명] / [금액]) and list every placeholder in ./HANDOFF.md for the owner to fill. A wrong name on something sent to a customer is worse than a blank — when unsure, leave it blank, never guess.
 - DON'T HUNT. If a step needs a fact you don't already have (a URL, a path, a count), spend AT MOST one tool call to get it. If that one call fails, write the missing fact into ./HANDOFF.md, use a clearly-labeled placeholder, and move on. Burning many calls searching is failure.
 - No schedulers, cron, cloud agents, or background daemons. If a step needs recurring runs, write the script + a README line saying how to schedule it, and stop.
 - POSTING/PUBLISHING IS ALLOWED — this plan was already approved by the owner. Use the browser to post on sites they're logged into (X, Instagram, Naver, etc.). BUT: if a site is NOT logged in (you hit a login/2FA screen), do NOT attempt to log in or enter credentials — screenshot it, write what the owner must do in ./HANDOFF.md, and move on. Never create new accounts. Never make a payment unless a step explicitly says so.
