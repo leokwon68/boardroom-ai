@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, saveOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
+import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, saveOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp, CONNECTIONS, loadConnections, saveConnections } from './engine.mjs';
 import { vapidPublicKey, addSub, pushNotify, pushEnabled } from './push.mjs';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
@@ -72,6 +72,17 @@ const SRV = createServer(async (req, res) => {
     if (url.pathname === '/api/owner' && req.method === 'POST') {
       const b = await body(req);
       return json(res, 200, { owner: saveOwner(b.text) });
+    }
+    // connections — the tools the owner plugged in (plain "연결", never "MCP")
+    if (url.pathname === '/api/connections') {
+      const on = loadConnections();
+      return json(res, 200, { catalog: CONNECTIONS.map(c => ({ id: c.id, emoji: c.emoji, name: c.name, name_en: c.name_en, blurb: c.blurb, blurb_en: c.blurb_en, examples: c.examples, on: on.includes(c.id) })) });
+    }
+    if (url.pathname === '/api/connections/toggle' && req.method === 'POST') {
+      const b = await body(req);
+      let on = loadConnections();
+      on = b.on ? [...new Set([...on, b.id])] : on.filter(x => x !== b.id);
+      return json(res, 200, { on: saveConnections(on) });
     }
     if (url.pathname === '/api/today') {
       const q = loadQueue();

@@ -570,6 +570,51 @@ function ensureMcpConfig() {
   }, null, 2));
 }
 
+// ── connections — the owner plugs in the tools they want; each becomes a real
+// capability the executor can use IN THEIR OWN account (their auth, their
+// credits). Plain words in the UI ("연결"), never "MCP". Auth rides on the
+// claude.ai session connectors, so most need no key — just enable.
+export const CONNECTIONS = [
+  { id: 'image', emoji: '🎨', name: '이미지·영상 만들기', name_en: 'Image & video',
+    blurb: '홍보 이미지·카드뉴스·짧은 영상을 직접 만들어요.', blurb_en: 'Make promo images, cards, short videos.',
+    examples: ['인스타 홍보 카드 만들어줘', '신메뉴 소개 이미지 한 장'],
+    tools: ['mcp__claude_ai__generate_image', 'mcp__claude_ai__generate_video'] },
+  { id: 'canva', emoji: '🖼️', name: '캔바 디자인', name_en: 'Canva design',
+    blurb: '템플릿으로 포스터·SNS 그래픽을 디자인해요.', blurb_en: 'Design posters & social graphics from templates.',
+    examples: ['이벤트 포스터 디자인', '메뉴판 새로 디자인'],
+    tools: ['mcp__claude_ai_Canva'] },
+  { id: 'gamma', emoji: '📊', name: '발표자료 만들기', name_en: 'Slide decks (Gamma)',
+    blurb: '제안서·발표 슬라이드를 자동으로 만들어요.', blurb_en: 'Auto-build pitch & presentation decks.',
+    examples: ['투자자용 5장 덱', '신메뉴 소개 슬라이드'],
+    tools: ['mcp__claude_ai_Gamma'] },
+  { id: 'notion', emoji: '📒', name: '노션', name_en: 'Notion',
+    blurb: '문서·표를 작성하고 정리해요.', blurb_en: 'Write & organize docs and tables.',
+    examples: ['이번 주 할 일 노션에 정리', '거래처 연락처 표로'],
+    tools: ['mcp__claude_ai_Notion'] },
+  { id: 'gmail', emoji: '✉️', name: '이메일 초안 (Gmail)', name_en: 'Email drafts (Gmail)',
+    blurb: '메일 초안을 써두고 라벨을 정리해요. 발송은 직접.', blurb_en: 'Draft emails & tidy labels. You hit send.',
+    examples: ['고객 안내 메일 초안 써줘', '지난주 문의 메일 정리'],
+    tools: ['mcp__claude_ai_Gmail'] },
+];
+const CONNECTIONS_PATH = join(HOME, 'connections.json');
+export function loadConnections() { try { return JSON.parse(readFileSync(CONNECTIONS_PATH, 'utf8')); } catch { return ['image']; } }
+export function saveConnections(ids) {
+  const valid = (ids || []).filter(id => CONNECTIONS.some(c => c.id === id));
+  writeFileSync(CONNECTIONS_PATH, JSON.stringify(valid, null, 2));
+  return valid;
+}
+// tool names the executor is allowed to call, given what's connected
+function connectedTools() {
+  const on = loadConnections();
+  return CONNECTIONS.filter(c => on.includes(c.id)).flatMap(c => c.tools);
+}
+function connectedSummary(ko) {
+  const on = loadConnections();
+  const items = CONNECTIONS.filter(c => on.includes(c.id));
+  if (!items.length) return ko ? '(연결된 도구 없음 — 글·표·파일·브라우저만 가능)' : '(no tools connected — text/files/browser only)';
+  return items.map(c => `${c.emoji} ${ko ? c.name : c.name_en}`).join(', ');
+}
+
 export async function planExecution(minutesFile) {
   const md = readMinutes(minutesFile);
   const planKo = /[가-힣]/.test(md);
@@ -583,6 +628,7 @@ ${md.slice(0, 9000)}
 Rules:
 - DELIVER FINISHED THINGS, NOT DEVELOPER HOMEWORK. The owner is a busy non-technical founder. The deliverable must be something they USE directly with zero setup — a written message/email ready to send, a designed image, a filled-in document, a posted/published thing, completed research with a clear answer, a ready-to-copy table. NEVER make the deliverable a script, code file (.mjs/.py), .env, config, webhook setup, runbook, or "install/connect X" — those are chores the owner can't do and won't want. If the only way to satisfy the verdict is building software or asking the owner to configure a service, the plan is WRONG: reframe to the actual outcome the owner wants done-for-them, or mark it a human-approval step in one plain sentence. Zero-setup is the rule.
 - PREFER VISUAL/CONCRETE over walls of text. If a graphic, image, or simple visual would serve better than a long document, plan to create that.
+- CONNECTED TOOLS the owner has enabled (use them to make richer, finished deliverables — e.g. an actual promo image instead of a text description): ${connectedSummary(planKo)}. Only assume tools in this list exist; if something needs a tool that is NOT connected, make it an "approval": true step telling the owner to connect it.
 - Plan ONLY what the verdict + experiment call for. No scope creep.
 - Steps must be executable by an autonomous agent with: shell, file read/write, web search/fetch, node (drives a REAL browser via playwright), and common CLIs.
 - If the verdict is about doing something in the real world (an admin procedure, an application, a lookup on an official site, monitoring), the steps should USE THE BROWSER to actually do or prepare it — navigate, fill what can be filled, save evidence screenshots — stopping at any login/identity/payment wall, which becomes an "approval": true step describing exactly what the human must do.
@@ -624,6 +670,8 @@ DELIVERABLE LANGUAGE: every file you create for the owner to read, send, or use 
 
 YOU HAVE A REAL BROWSER via the Playwright MCP tools (mcp__playwright__browser_navigate / _click / _type / _snapshot / _take_screenshot etc.). It runs on a PERSISTENT profile where the owner is already logged into their sites (X, Instagram, Naver, etc.). Use these tools to ACT for real — navigate, fill, click, publish, post — like a person. Save screenshots as proof. (You can also write node Playwright scripts for headless scraping, but for posting/acting on logged-in sites use the MCP browser.)
 
+CONNECTED TOOLS (the owner enabled these — USE them to produce real, finished, visual deliverables, e.g. generate an actual promo image rather than describing one): ${connectedSummary(isKo)}. If a tool you need is not connected, don't fake it — note in ./HANDOFF.md that the owner should connect it.
+
 KNOWN CONTEXT — treat as given, do NOT re-derive or hunt for these:
 ${plan.context || '(none provided)'}
 
@@ -644,14 +692,16 @@ DELIVERABLE: ${plan.deliverable}
 
 When finished, print exactly one final line: RESULT: <one sentence in ${lang} — what now exists and where>.`;
     ensureMcpConfig();
+    // base tools + whatever the owner connected (image/video/design/etc). Dropping
+    // --strict-mcp-config lets the authed claude.ai connectors load WITHOUT keys;
+    // --setting-sources project still keeps the user's global CLAUDE.md out. The
+    // allowedTools list is the gate: only connected tools are callable.
+    const extraTools = connectedTools();
     const p = spawn('claude', [
       '-p', '--output-format', 'stream-json', '--verbose',
-      // curated tools: files/shell/web + the Playwright MCP (browser automation = post/deploy anywhere)
-      '--allowedTools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'mcp__playwright',
-      // controlled isolation: no user CLAUDE.md/memory, ONLY the curated MCP config (no ambient MCPs), no meta-tools
+      '--allowedTools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'mcp__playwright', ...extraTools,
       '--setting-sources', 'project',
       '--mcp-config', join(HOME, 'mcp.json'),
-      '--strict-mcp-config',
       '--disallowedTools', 'Task', 'Agent', 'Skill', 'ToolSearch', 'CronCreate', 'CronDelete', 'CronList',
       'RemoteTrigger', 'SendMessage', 'PushNotification', 'TeamCreate', 'TeamDelete', 'NotebookEdit',
       'TaskCreate', 'TaskUpdate', 'Workflow', 'EnterPlanMode', 'ExitPlanMode',
