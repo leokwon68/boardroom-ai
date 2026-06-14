@@ -640,8 +640,11 @@ Rules:
 
 - "headline" is the MOST IMPORTANT field for the human: one short plain-language sentence, like you're telling a busy non-technical friend what you'll do for them and why it helps. NO jargon, NO acronyms (no "UTM", "falsifier", "carve-out", "p99", "matrix"), NO internal codenames. If you can't say it plainly, the plan is too in-the-weeds. Example good: "I'll write the customer shutdown emails and refund steps for your 8 products, ready for you to send." Example bad: "Build sunset-package notice templates with prorated refund matrix and dispute carve-out."
 
+- "title" is what the owner reads FIRST and almost the only thing they read: the single action, ≤ 7 words, like a phone notification or a to-do checkbox. ${planKo ? 'Korean.' : ''} NO sub-clauses, NO "and", NO explanation. Example good: "첫 고객 후기 문자 준비" / "결제 링크 막힘 점검". Example bad: a full sentence with commas. If you wrote more than ~7 words, cut it.
+
 Output strict JSON only:
-{"headline": "plain-language one sentence for the owner — what you'll do and why it helps, no jargon",
+{"title": "≤7 words, the single action only — the owner reads this and nothing else",
+ "headline": "plain-language one sentence for the owner — what you'll do and why it helps, no jargon",
  "summary": "one line — what will be done (may be technical)",
  "context": "facts to treat as given (paths, known/absent URLs, counts, prior decisions) — so the executor does not hunt for them",
  "steps": [{"n": 1, "do": "...", "approval": false}, ...],

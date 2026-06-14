@@ -94,7 +94,7 @@ const SRV = createServer(async (req, res) => {
       return json(res, 200, {
         owner: loadOwner(),
         pendingCount: q.length,
-        pending: pending && { id: pending.id, headline: pending.plan.headline, deliverable: pending.plan.deliverable, risk: pending.plan.risk, summary: pending.plan.summary, minutesFile: pending.plan.minutesFile, steps: (pending.plan.steps || []).map(s => ({ do: s.do, approval: !!s.approval })) },
+        pending: pending && { id: pending.id, title: pending.plan.title, headline: pending.plan.headline, deliverable: pending.plan.deliverable, risk: pending.plan.risk, summary: pending.plan.summary, minutesFile: pending.plan.minutesFile, steps: (pending.plan.steps || []).map(s => ({ do: s.do, approval: !!s.approval })) },
         notice: notice ? notice.text : '',
         recent: acts.filter(a => ['verdict', 'queued', 'executed', 'agenda'].includes(a.kind)).slice(0, 4),
         battingAvg: stats.avg, decisions: stats.total,

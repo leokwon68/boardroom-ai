@@ -11,20 +11,21 @@
 <meta name="apple-mobile-web-app-title" content="Boardroom">
 <style>
   :root {
-    /* Toss-style: clean light, generous space, one friendly blue */
-    --bg: #f2f4f6; --card: #ffffff; --card2: #f2f4f6; --ink: #191f28; --dim: #8b95a1;
-    --line: #e5e8eb; --line2: #d5dadf; --accent: #3182f6; --accent-2: #3182f6; --accent-ink: #3182f6;
-    --amber: #ff8a00; --red: #f04452; --green: #14c47d;
-    --grad: linear-gradient(135deg, #4b91f7 0%, #3182f6 100%);
-    --glow: 0 8px 24px -8px rgba(49,130,246,.4);
-    --shadow: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px -14px rgba(17,24,39,.18);
-    --radius: 18px;
+    /* warm editorial — a daily briefing, not a generic SaaS. ink on paper, one ember accent */
+    --bg: #ece7dd; --card: #faf7f1; --card2: #f1ece2; --ink: #20140d; --dim: #8c8073;
+    --line: #ded6c7; --line2: #cabfad; --accent: #e0502a; --accent-2: #b23410; --accent-ink: #b23410;
+    --amber: #c98a1a; --red: #c0392b; --green: #3f8f5b;
+    --grad: linear-gradient(135deg, #ef6a3d 0%, #d8431b 100%);
+    --glow: 0 10px 30px -10px rgba(216,67,27,.35);
+    --shadow: 0 1px 2px rgba(60,40,20,.05), 0 14px 34px -18px rgba(60,40,20,.3);
+    --radius: 16px;
     --mono: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    --serif: "Georgia", "Iowan Old Style", "Apple SD Gothic Neo", serif;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: var(--bg); color: var(--ink); font-family: Inter, -apple-system, "SF Pro Text", "Apple SD Gothic Neo", sans-serif; min-height: 100vh; font-size: 15px;
     -webkit-font-smoothing: antialiased; letter-spacing: -.2px; }
-  ::selection { background: rgba(49,130,246,.18); }
+  ::selection { background: rgba(216,67,27,.18); }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: #d1d6db; border-radius: 99px; border: 2px solid var(--bg); }
   ::-webkit-scrollbar-thumb:hover { background: #b9c0c8; }
@@ -33,12 +34,12 @@
   .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
   .sidebar { border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; background: #fff; }
   .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; letter-spacing: -.3px; padding: 6px 10px 18px; }
-  .brand .mk { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; box-shadow: 0 4px 12px -3px rgba(49,130,246,.5); }
+  .brand .mk { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; box-shadow: 0 4px 12px -3px rgba(216,67,27,.5); }
   .brand .ver { color: var(--dim); font-size: 10px; font-family: var(--mono); font-weight: 500; margin-left: auto; }
   nav { display: flex; flex-direction: column; gap: 3px; }
   nav button { display: flex; align-items: center; gap: 11px; border: 0; background: transparent; color: #4e5968; font-weight: 600; font-size: 14.5px; padding: 11px 12px; border-radius: 12px; cursor: pointer; font-family: inherit; text-align: left; width: 100%; position: relative; }
   nav button:hover { background: var(--bg); color: var(--ink); }
-  nav button.on { background: rgba(49,130,246,.1); color: var(--accent); font-weight: 700; }
+  nav button.on { background: rgba(216,67,27,.1); color: var(--accent); font-weight: 700; }
   nav button .ico { width: 17px; text-align: center; opacity: .95; }
   .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
   .side-foot .ctrls { display: flex; gap: 8px; }
@@ -54,24 +55,29 @@
   .sub { color: var(--dim); font-size: 14px; line-height: 1.65; max-width: 620px; }
   .view { display: none; } .view.on { display: block; }
   /* Today hero — the one thing prepared, premium accent glow */
-  .todayhero { border: 1px solid var(--line); box-shadow: 0 10px 36px -16px rgba(49,130,246,.28), var(--shadow); }
+  .todayhero { border: 1px solid var(--line); box-shadow: 0 10px 36px -16px rgba(216,67,27,.28), var(--shadow); }
   #v-today .sub { letter-spacing: -.2px; }
   .th-top { display: flex; gap: 16px; align-items: flex-start; }
-  .th-icon { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 16px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; box-shadow: 0 8px 20px -6px rgba(49,130,246,.55); }
+  .th-icon { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 16px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; box-shadow: 0 8px 20px -6px rgba(216,67,27,.55); }
   .th-eyebrow { color: var(--accent); font-weight: 800; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
   .th-headline { margin-top: 6px; font-size: 23px; line-height: 1.34; letter-spacing: -.6px; font-weight: 800;
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .th-chip { margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; color: var(--dim); }
   .th-chip span { color: #4e5968; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .th-actions { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
-  .th-go { background: var(--accent) !important; color: #fff !important; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(49,130,246,.6); }
+  /* briefing — reads like your chief of staff telling you the one thing */
+  .brief-greet { font-family: var(--serif); font-size: 15px; color: var(--dim); margin-bottom: 12px; font-style: italic; }
+  .brief-from { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
+  .brief-title { font-family: var(--serif); margin-top: 10px; font-size: 30px; line-height: 1.25; letter-spacing: -.5px; font-weight: 700; color: var(--ink); }
+  .brief-get { margin-top: 14px; font-size: 14px; color: var(--dim); } .brief-get b { color: var(--ink); font-weight: 600; }
+  .th-actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .th-go { background: var(--accent) !important; color: #fff !important; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(216,67,27,.6); }
   /* connections */
   .conngrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; margin-top: 22px; }
   .conn { border: 1px solid var(--line); border-radius: 18px; padding: 20px; background: var(--card); position: relative; box-shadow: var(--shadow); }
-  .conn.on { border-color: rgba(49,130,246,.35); box-shadow: 0 0 0 1px rgba(49,130,246,.18), 0 12px 30px -18px rgba(49,130,246,.45); }
+  .conn.on { border-color: rgba(216,67,27,.35); box-shadow: 0 0 0 1px rgba(216,67,27,.18), 0 12px 30px -18px rgba(216,67,27,.45); }
   .conn .ch { display: flex; align-items: center; gap: 12px; }
   .conn .cemoji { width: 44px; height: 44px; border-radius: 13px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 22px; }
-  .conn.on .cemoji { background: rgba(49,130,246,.12); }
+  .conn.on .cemoji { background: rgba(216,67,27,.12); }
   .conn h3 { font-size: 15.5px; font-weight: 700; }
   .conn .cstat { font-size: 11.5px; font-weight: 700; color: var(--dim); }
   .conn.on .cstat { color: var(--accent); }
@@ -104,8 +110,8 @@
   .keyrow.show { display: flex; }
   input, textarea { font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; width: 100%; background: var(--card2); color: var(--ink); }
   input, textarea { background: #fff; }
-  input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49,130,246,.15); }
-  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; padding: 13px 22px; border-radius: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; box-shadow: 0 6px 16px -8px rgba(49,130,246,.6); }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(216,67,27,.15); }
+  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; padding: 13px 22px; border-radius: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; box-shadow: 0 6px 16px -8px rgba(216,67,27,.6); }
   .btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
   .btn:active { transform: translateY(0); filter: brightness(.97); }
   .btn.ghost { background: #f2f4f6; color: #4e5968; border: 0; box-shadow: none; }
@@ -1434,6 +1440,8 @@ setTimeout(() => applyLang($('lang').value), 400);
 // GPT answers when asked; this shows what it already did + what needs your yes.
 const TL = (ko, en) => (LANG === 'ko' ? ko : en);
 const esc = s => String(s || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+// keep it to a glance: first clause, hard cap
+const shorten = (s, n) => { s = String(s || '').split(/[—\n.·]/)[0].replace(/\s*\(.*$/, '').trim(); return s.length > n ? s.slice(0, n).trim() + '…' : s; };
 let TODAY = null, _todayBusy = false;
 async function loadToday() {
   try { TODAY = await (await fetch('/api/today')).json(); } catch { return; }
@@ -1469,25 +1477,23 @@ function renderToday() {
   </div>`;
   if (p) {
     const steps = (p.steps || []).map(s => `<li style="margin:3px 0">${s.approval ? '🔸' : '·'} ${esc(s.do)}</li>`).join('');
-    w.innerHTML = `<div style="margin-bottom:6px" class="sub">☀ ${TL('오늘, 당신을 위해','Today, for you')}</div>
+    const title = p.title || shorten(p.headline || p.summary || '', 32);
+    const oneGet = shorten(p.deliverable || '', 46);
+    w.innerHTML = `<div class="brief-greet">${TL('대표님, 오늘 챙길 건 하나예요.','One thing for you today.')}</div>
       <div class="card todayhero">
-        <div class="th-top">
-          <div class="th-icon">✦</div>
-          <div style="min-width:0">
-            <div class="th-eyebrow">${TL('내가 준비한 한 가지','the one thing I prepared')}</div>
-            <h1 class="th-headline">${esc(p.headline || p.summary)}</h1>
-          </div>
-        </div>
-        ${p.deliverable ? `<div class="th-chip">📎 <span>${esc(p.deliverable)}</span></div>` : ''}
+        <div class="brief-from">🧑‍💼 ${TL('비서실장 브리핑','Chief of staff')}</div>
+        <h1 class="brief-title">${esc(title)}</h1>
+        ${oneGet ? `<div class="brief-get">${TL('끝나면','You get')}: <b>${esc(oneGet)}</b></div>` : ''}
         <div class="th-actions">
           <button class="btn th-go" id="tapprove">▶ ${TL('승인하고 실행','Approve & run')}</button>
           <button class="btn ghost" id="tdecline">${TL('나중에','Not now')}</button>
-          <button class="btn ghost" id="twhy">${TL('왜 이거? ▾','Why this? ▾')}</button>
+          <button class="btn ghost" id="twhy">${TL('자세히','Details')}</button>
         </div>
-        <div id="twhybox" style="display:none; margin-top:14px; padding:12px; background:var(--card2); border-radius:10px">
-          <div class="sub">${TL('보드가 회의해서 고른 거예요. 근거:','Your board met and chose this. Reasoning:')}</div>
-          <div style="margin-top:6px; font-size:13px; opacity:.9">${esc(p.summary)}</div>
-          ${p.risk ? `<div style="margin-top:10px; font-size:12.5px; color:var(--amber)">⚠️ ${esc(p.risk)}</div>` : ''}
+        <div id="twhybox" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line)">
+          <div class="sub" style="font-weight:600; color:var(--ink)">${esc(p.headline || '')}</div>
+          ${p.deliverable ? `<div style="margin-top:10px; font-size:13px"><b>${TL('산출물','Deliverable')}:</b> ${esc(p.deliverable)}</div>` : ''}
+          ${p.risk ? `<div style="margin-top:8px; font-size:12.5px; color:var(--accent)">⚠️ ${esc(p.risk)}</div>` : ''}
+          <div class="sub" style="margin-top:14px; font-size:12px; opacity:.8">${TL('이사회가 회의해서 고른 거예요.','Your board met and chose this.')} ${esc(p.summary || '')}</div>
           ${steps ? `<ul style="margin-top:10px; font-size:12.5px; color:var(--dim); list-style:none; padding:0">${steps}</ul>` : ''}
           <button class="btn ghost" id="twview" style="margin-top:12px; font-size:12px; padding:8px 14px">${TL('전체 회의록 보기','See the full meeting')}</button>
         </div>
