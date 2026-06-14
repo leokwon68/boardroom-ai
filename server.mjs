@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
+import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, saveOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp } from './engine.mjs';
 import { vapidPublicKey, addSub, pushNotify, pushEnabled } from './push.mjs';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
@@ -67,6 +67,34 @@ const SRV = createServer(async (req, res) => {
     if (url.pathname === '/api/push/subscribe' && req.method === 'POST') {
       const b = await body(req);
       return json(res, 200, { ok: addSub(b.sub || b) });
+    }
+    // ── Today — the daily operator surface: what to do + what's prepared ──
+    if (url.pathname === '/api/owner' && req.method === 'POST') {
+      const b = await body(req);
+      return json(res, 200, { owner: saveOwner(b.text) });
+    }
+    if (url.pathname === '/api/today') {
+      const q = loadQueue();
+      const pending = q[0] || null;
+      const acts = loadActivity(12);
+      const notice = acts.find(a => a.kind === 'notice');
+      const { stats } = ledgerData();
+      const ap = loadConfig().autopilot || {};
+      return json(res, 200, {
+        owner: loadOwner(),
+        pendingCount: q.length,
+        pending: pending && { id: pending.id, headline: pending.plan.headline, deliverable: pending.plan.deliverable, risk: pending.plan.risk, summary: pending.plan.summary, minutesFile: pending.plan.minutesFile, steps: (pending.plan.steps || []).map(s => ({ do: s.do, approval: !!s.approval })) },
+        notice: notice ? notice.text : '',
+        recent: acts.filter(a => ['verdict', 'queued', 'executed', 'agenda'].includes(a.kind)).slice(0, 4),
+        battingAvg: stats.avg, decisions: stats.total,
+        autopilot: { enabled: !!ap.enabled, intervalMin: ap.intervalMin || 0 },
+      });
+    }
+    if (url.pathname === '/api/today/run' && req.method === 'POST') {
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      const send = (type, payload) => res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
+      try { await autopilotOnce(send); } catch (e) { send('error', { message: e.message }); }
+      return res.end();
     }
     if (url.pathname === '/api/state') {
       const cfg = loadConfig();
@@ -272,38 +300,44 @@ start(PORT);
 // 실행은 절대 자동으로 하지 않는다 — Execute/Decline은 항상 사람 몫.
 import { runAutopilot as _auto } from './engine.mjs';
 let _apTimer = null, _apBusy = false;
+// one autopilot pass: board picks an agenda, meets, queues a plan, notifies.
+// shared by the daemon timer AND the "run now" button on the Today screen.
+// optional onEvent streams progress (SSE) to a watching client.
+async function autopilotOnce(onEvent = () => {}) {
+  if (_apBusy) { onEvent('busy', {}); return; }
+  _apBusy = true;
+  try {
+    let lastMinutes = null, topic = null, verdict = null;
+    await _auto((type, payload) => {
+      onEvent(type, payload);
+      if (type === 'notice') {
+        logActivity('notice', `${payload.noticed || ''}${payload.why_now ? ' — ' + payload.why_now : ''}`);
+        const ko = loadConfig().lang === 'ko';
+        pushNotify(ko ? '🔔 보드가 안건을 찾았어요' : '🔔 Your board found an agenda', payload.noticed || '', '/').catch(() => {});
+      }
+      if (type === 'autopilot' && payload.topic) { topic = payload.topic; logActivity('agenda', payload.status === 'founded a new division' ? payload.topic : `convened — ${payload.topic}`); }
+      if (type === 'done' && payload.minutesPath) lastMinutes = payload.minutesPath.split('/').pop();
+      if (type === 'done' && payload.verdict) { const d = (payload.verdict.match(/DECISION:\s*(.*)/i) || [])[1] || ''; verdict = { d, conf: payload.confidence }; if (d) logActivity('verdict', `${payload.confidence ?? ''}% · ${d}`); }
+    }, 1);
+    if (lastMinutes) {
+      const q = await enqueuePlan(lastMinutes);
+      logActivity('queued', `plan queued for approval (${q.length} pending)`);
+      const it = q[0];   // newest — surfaced in the Today screen + approval queue
+      const dec = (it.plan.headline || (verdict ? verdict.d : topic) || '').slice(0, 140);
+      logActivity('await', `approve in the app: ${dec}`);
+      const ko = loadConfig().lang === 'ko';
+      pushNotify(ko ? '📥 승인 대기 — 실행할까요?' : '📥 Approval needed', dec, '/').catch(() => {});
+      onEvent('queued', { id: it.id, headline: it.plan.headline || dec });
+    }
+    console.log(`[autopilot] meeting done → queued plan (${lastMinutes})`);
+  } catch (e) { logActivity('error', e.message); console.log('[autopilot] error:', e.message); onEvent('error', { message: e.message }); }
+  _apBusy = false;
+}
 function armAutopilot() {
   clearInterval(_apTimer);
   const ap = loadConfig().autopilot;
   if (!ap || !ap.enabled) return;
-  const tick = async () => {
-    if (_apBusy) return;
-    _apBusy = true;
-    try {
-      let lastMinutes = null, topic = null, verdict = null;
-      await _auto((type, payload) => {
-        if (type === 'notice') {
-          logActivity('notice', `${payload.noticed || ''}${payload.why_now ? ' — ' + payload.why_now : ''}`);
-          const ko = loadConfig().lang === 'ko';
-          pushNotify(ko ? '🔔 보드가 안건을 찾았어요' : '🔔 Your board found an agenda', payload.noticed || '', '/').catch(() => {});
-        }
-        if (type === 'autopilot' && payload.topic) { topic = payload.topic; logActivity('agenda', payload.status === 'founded a new division' ? payload.topic : `convened — ${payload.topic}`); }
-        if (type === 'done' && payload.minutesPath) lastMinutes = payload.minutesPath.split('/').pop();
-        if (type === 'done' && payload.verdict) { const d = (payload.verdict.match(/DECISION:\s*(.*)/i) || [])[1] || ''; verdict = { d, conf: payload.confidence }; if (d) logActivity('verdict', `${payload.confidence ?? ''}% · ${d}`); }
-      }, 1);
-      if (lastMinutes) {
-        const q = await enqueuePlan(lastMinutes);
-        logActivity('queued', `plan queued for approval (${q.length} pending)`);
-        const it = q[0];   // newest — surfaced in the web activity feed + approval queue
-        const dec = (it.plan.headline || (verdict ? verdict.d : topic) || '').slice(0, 140);
-        logActivity('await', `approve in the app: ${dec}`);
-        const ko = loadConfig().lang === 'ko';
-        pushNotify(ko ? '📥 승인 대기 — 실행할까요?' : '📥 Approval needed', dec, '/').catch(() => {});
-      }
-      console.log(`[autopilot] meeting done → queued plan (${lastMinutes})`);
-    } catch (e) { logActivity('error', e.message); console.log('[autopilot] error:', e.message); }
-    _apBusy = false;
-  };
+  const tick = () => autopilotOnce();
   _apTimer = setInterval(tick, Math.max(10, ap.intervalMin) * 60 * 1000);
   console.log(`[autopilot] armed — every ${ap.intervalMin}min`);
   // fire once immediately so toggling ON does real work now, not in an hour

@@ -251,9 +251,10 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.4.0</span></div>
+    <div class="brand"><span class="mk">▦</span> Boardroom <span class="ver">v0.4.3</span></div>
     <nav>
-      <button data-v="meeting" class="on"><span class="ico">▦</span> Boardroom</button>
+      <button data-v="today" class="on"><span class="ico">☀</span> <span data-i18n>Today</span> <span id="tbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
+      <button data-v="meeting"><span class="ico">▦</span> <span data-i18n>Ask the board</span></button>
       <button data-v="office"><span class="ico">👥</span> Staff</button>
       <button data-v="approvals"><span class="ico">✓</span> Approvals <span id="qbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
       <button data-v="reports"><span class="ico">📄</span> Reports</button>
@@ -274,6 +275,10 @@
     </div>
   </aside>
   <main class="main">
+
+  <section class="view on" id="v-today">
+    <div id="todaywrap" style="max-width:720px; margin:0 auto"></div>
+  </section>
 
   <section class="view" id="v-setup">
     <div class="card">
@@ -304,7 +309,7 @@
     </div>
   </section>
 
-  <section class="view on" id="v-meeting">
+  <section class="view" id="v-meeting">
     <div class="hero">
       <div class="hero-tag" data-i18n="herotag">An AI board that <b>argues</b>, <b>scores itself</b>, and <b>does the work</b>. You just approve.</div>
       <div class="hero-stats">
@@ -468,13 +473,14 @@ const PROVIDERS = [
 const connected = prov => prov === 'anthropic' ? (STATE.hasAnthropicKey || STATE.claudeCli)
   : prov === 'openai' ? STATE.hasOpenaiKey : STATE.hasGeminiKey;
 
-let CUR = 'meeting';
+let CUR = 'today';
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
 function show(v) {
   CUR = v;
   document.querySelectorAll('.view').forEach(sec => sec.classList.remove('on'));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   $('v-' + v).classList.add('on');
+  if (v === 'today') loadToday();
   if (v === 'ledger') loadLedger();
   if (v === 'reports') loadReports();
   if (v === 'approvals') loadQueue();
@@ -495,6 +501,7 @@ async function refresh() {
   renderReady(); renderHero();
   loadActivity(); armLive(); armAutopilot();
   applyLang(LANG);
+  if (CUR === 'today') loadToday();
 }
 async function renderHero() {
   try {
@@ -541,6 +548,7 @@ function syncBadge() {
   const qb = $('qbadge'), n = STATE.queueCount || 0;
   qb.style.display = n ? 'inline-block' : 'none';
   qb.textContent = n;
+  const tb = $('tbadge'); if (tb) { tb.style.display = n ? 'inline-block' : 'none'; tb.textContent = n; }
   if (n > _lastQ) { qb.classList.remove('bump'); void qb.offsetWidth; qb.classList.add('bump'); sfx.tick(); }
   _lastQ = n;
 }
@@ -609,6 +617,7 @@ function armLive() {
       loadActivity(); if (CUR === 'meeting') renderHero();
       if (CUR === 'approvals' && !window._executing) loadQueue();
       else if (CUR === 'ledger') loadLedger();
+      else if (CUR === 'today' && !_todayBusy) loadToday();
     } catch {}
   }, 7000);
 }
@@ -1363,6 +1372,124 @@ function applyLang(lang) {
 $('lang').value = localStorage.getItem('br-lang') || 'en';
 $('lang').onchange = () => { applyLang($('lang').value); fetch('/api/config', { method: 'POST', body: JSON.stringify({ lang: $('lang').value }) }).catch(() => {}); };
 setTimeout(() => applyLang($('lang').value), 400);
+
+// ── Today — the daily operator surface. The reason to open this over GPT: ──
+// GPT answers when asked; this shows what it already did + what needs your yes.
+const TL = (ko, en) => (LANG === 'ko' ? ko : en);
+const esc = s => String(s || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+let TODAY = null, _todayBusy = false;
+async function loadToday() {
+  try { TODAY = await (await fetch('/api/today')).json(); } catch { return; }
+  renderToday();
+}
+function renderToday() {
+  const w = $('todaywrap'); if (!w || !TODAY) return;
+  const d = TODAY;
+  // first run — one line about your business, then it works for you
+  if (!d.owner || !d.owner.trim()) {
+    w.innerHTML = `<div class="card">
+      <h1>${TL('당신의 자율 비서','Your autonomous operator')}</h1>
+      <p class="sub">${TL('GPT는 물어봐야 답해요. 이건 안 물어봐도 일해요 — 매일 당신 사업에서 가장 중요한 한 가지를 찾아 준비해두고, 승인만 받아요.','GPT answers when you ask. This works when you do not — every day it finds the one thing that matters most in your business, prepares it, and waits for your yes.')}</p>
+      <p class="sub" style="margin-top:14px; font-weight:600; color:var(--ink)">${TL('당신 사업·일을 한 줄로 알려주세요.','Tell it, in one line, what business it runs for you.')}</p>
+      <textarea id="ownerin" rows="3" placeholder="${TL('예: 강남에서 필라테스 스튜디오 운영. 예약·노쇼 관리가 제일 골치.','e.g. I run a pilates studio in Seoul; bookings and no-shows are my biggest headache.')}" style="width:100%; margin-top:8px; padding:12px; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--ink); font-size:14px; resize:vertical"></textarea>
+      <button class="btn" id="ownersave" style="margin-top:12px; background:var(--accent); color:#fff">${TL('시작하기','Start')}</button>
+    </div>`;
+    $('ownersave').onclick = async () => {
+      const text = $('ownerin').value.trim(); if (!text) return;
+      $('ownersave').disabled = true;
+      await fetch('/api/owner', { method: 'POST', body: JSON.stringify({ text }) });
+      await loadToday(); runToday();   // immediately find today's first thing
+    };
+    return;
+  }
+  const p = d.pending;
+  const avg = d.battingAvg == null ? '—' : ('.' + String(Math.round(d.battingAvg * 1000)).padStart(3, '0'));
+  const apOn = d.autopilot.enabled;
+  const foot = `<div class="sub" style="margin-top:18px; display:flex; gap:18px; align-items:center; flex-wrap:wrap">
+    <span>⚖️ ${TL('타율','batting avg')} <b style="color:var(--ink)">${avg}</b></span>
+    <span>📊 ${TL('결정','decisions')} <b style="color:var(--ink)">${d.decisions || 0}</b></span>
+    <span>${apOn ? `<span class="livedotmini"></span> ${TL('자동 운영 켜짐','autopilot on')} · ${d.autopilot.intervalMin}m` : `<a href="#" id="apgo" style="color:var(--amber)">${TL('자동 운영 켜기 →','turn on autopilot →')}</a>`}</span>
+  </div>`;
+  if (p) {
+    const steps = (p.steps || []).map(s => `<li style="margin:3px 0">${s.approval ? '🔸' : '·'} ${esc(s.do)}</li>`).join('');
+    w.innerHTML = `<div style="margin-bottom:6px" class="sub">☀ ${TL('오늘, 당신을 위해','Today, for you')}</div>
+      <div class="card" style="border:1px solid var(--accent)">
+        <div class="sub" style="color:var(--accent); font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase">${TL('내가 준비한 한 가지','the one thing I prepared')}</div>
+        <h1 style="margin-top:8px; font-size:20px; line-height:1.4">${esc(p.headline || p.summary)}</h1>
+        ${p.deliverable ? `<p class="sub" style="margin-top:10px"><b style="color:var(--ink)">${TL('완성되면','when done')}:</b> ${esc(p.deliverable)}</p>` : ''}
+        ${p.risk ? `<p class="sub" style="margin-top:4px">⚠️ ${esc(p.risk)}</p>` : ''}
+        <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
+          <button class="btn" id="tapprove" style="background:var(--green); color:#0b0d11; font-weight:700">▶ ${TL('승인하고 실행','Approve & run')}</button>
+          <button class="btn" id="tdecline" style="background:var(--card2)">${TL('나중에','Not now')}</button>
+          <button class="btn" id="twhy" style="background:transparent; border:1px solid var(--line)">${TL('왜 이거? ▾','Why this? ▾')}</button>
+        </div>
+        <div id="twhybox" style="display:none; margin-top:14px; padding:12px; background:var(--card2); border-radius:10px">
+          <div class="sub">${TL('보드가 회의해서 고른 거예요. 근거:','Your board met and chose this. Reasoning:')}</div>
+          <div style="margin-top:6px; font-size:13px; opacity:.9">${esc(p.summary)}</div>
+          ${steps ? `<ul style="margin-top:10px; font-size:12.5px; color:var(--dim); list-style:none; padding:0">${steps}</ul>` : ''}
+          <button class="btn" id="twview" style="margin-top:10px; background:transparent; border:1px solid var(--line); font-size:12px">${TL('전체 회의록 보기','See the full meeting')}</button>
+        </div>
+        <div class="execfeed" id="texec"></div>
+      </div>${foot}`;
+    $('twhy').onclick = () => { const b = $('twhybox'); const open = b.style.display === 'none'; b.style.display = open ? 'block' : 'none'; _todayBusy = open; /* pause live refresh while reading */ };
+    $('twview').onclick = () => { show('reports'); };
+    $('tdecline').onclick = async () => { await fetch('/api/queue/decline', { method: 'POST', body: JSON.stringify({ id: p.id }) }); loadToday(); };
+    $('tapprove').onclick = () => executeToday(p.id);
+  } else {
+    w.innerHTML = `<div style="margin-bottom:6px" class="sub">☀ ${TL('오늘','Today')}</div>
+      <div class="card">
+        <h1 style="font-size:19px">${d.notice ? esc(d.notice) : TL('아직 올라온 안건이 없어요.','Nothing on the agenda yet.')}</h1>
+        <p class="sub" style="margin-top:10px">${TL('보드를 한 번 돌려서 지금 가장 중요한 한 가지를 찾아올까요?','Run the board once to find the single most useful thing right now?')}</p>
+        <button class="btn" id="trun" style="margin-top:14px; background:var(--accent); color:#fff; font-weight:700">${TL('지금 한번 돌려보기','Find today’s thing')}</button>
+        <div class="execfeed" id="texec"></div>
+      </div>
+      ${d.recent && d.recent.length ? `<div class="card" style="margin-top:14px"><div class="sub">${TL('최근 한 일','recently')}</div><ul style="margin-top:8px; list-style:none; padding:0; font-size:13px">${d.recent.map(r => `<li style="margin:5px 0; color:var(--dim)">· ${esc(r.text)}</li>`).join('')}</ul></div>` : ''}
+      ${foot}`;
+    $('trun').onclick = () => runToday();
+  }
+  const apgo = $('apgo'); if (apgo) apgo.onclick = e => { e.preventDefault(); show('setup'); };
+}
+// run one autopilot pass on demand — board finds + prepares today's thing, live
+async function runToday() {
+  if (_todayBusy) return; _todayBusy = true;
+  const ef = $('texec'); if (ef) { ef.style.display = 'block'; ef.innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${TL('보드가 안건을 찾는 중…','board is finding your agenda…')}</div>`; }
+  try {
+    const res = await fetch('/api/today/run', { method: 'POST' });
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true }); const parts = buf.split('\n\n'); buf = parts.pop();
+      for (const part of parts) { const line = part.replace(/^data: /, ''); if (!line.trim()) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === 'autopilot' && ev.status && ef) ef.insertAdjacentHTML('beforeend', `<div class="say">· ${esc(ev.topic || ev.status)}</div>`);
+        if (ev.type === 'notice' && ef) ef.insertAdjacentHTML('beforeend', `<div class="voice">${esc(ev.noticed || '')}</div>`);
+      }
+    }
+  } catch (e) { if (ef) ef.insertAdjacentHTML('beforeend', `<div class="res">⚠️ ${esc(e.message)}</div>`); }
+  _todayBusy = false; loadToday();
+}
+// approve & run the prepared plan — real executor, streamed in the card
+async function executeToday(id) {
+  const ef = $('texec'); if (!ef) return;
+  _todayBusy = true;   // hold live refresh while the executor streams into the card
+  $('tapprove').disabled = true; $('tapprove').textContent = TL('실행 중…','running…');
+  ef.style.display = 'block';
+  ef.innerHTML = `<div class="execrun"><span class="livedotmini"></span> ${t('🤖 Executor working — real browser, shell, files. Watch below.')}</div>`;
+  try {
+    const res = await fetch('/api/queue/execute', { method: 'POST', body: JSON.stringify({ id }) });
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true }); const parts = buf.split('\n\n'); buf = parts.pop();
+      for (const part of parts) { const line = part.replace(/^data: /, ''); if (!line.trim()) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === 'exec') renderExec(ef, ev);
+        if (ev.type === 'error') ef.insertAdjacentHTML('beforeend', `<div class="res">⚠️ ${esc(ev.message)}</div>`);
+      }
+    }
+  } catch (e) { ef.insertAdjacentHTML('beforeend', `<div class="res">⚠️ ${esc(e.message)}</div>`); }
+  _todayBusy = false; setTimeout(loadToday, 1200);
+}
 
 // ── phone notifications (web push) — the AI taps you on the shoulder ──
 // register the service worker; the 🔔 button asks permission and subscribes.

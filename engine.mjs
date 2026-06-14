@@ -456,6 +456,12 @@ export function saveDivisions(d) { writeFileSync(DIVISIONS_PATH, JSON.stringify(
 export function loadOwner() {
   try { return readFileSync(OWNER_PATH, 'utf8'); } catch { return ''; }
 }
+// one-line onboarding — the owner tells the daily operator what business it runs
+export function saveOwner(text) {
+  const t = String(text || '').trim().slice(0, 600);
+  if (t) writeFileSync(OWNER_PATH, t + '\n');
+  return t;
+}
 
 async function learnOwner(question, decision) {
   try {
