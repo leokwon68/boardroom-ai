@@ -1,0 +1,35 @@
+{
+  "name": "boardroom-desktop",
+  "version": "0.4.3",
+  "description": "Boardroom — Mac menubar app. Your one-person company, always on.",
+  "main": "main.js",
+  "author": "Boardroom",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "ai.boardroom.desktop",
+    "productName": "Boardroom",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "trayTemplate.png", "trayTemplate@2x.png", "icon.png", "icon.icns"],
+    "extraResources": [
+      { "from": "../server.mjs", "to": "server/server.mjs" },
+      { "from": "../engine.mjs", "to": "server/engine.mjs" },
+      { "from": "../push.mjs", "to": "server/push.mjs" },
+      { "from": "../public", "to": "server/public" },
+      { "from": "../node_modules", "to": "server/node_modules" }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "icon.icns",
+      "target": "dmg",
+      "identity": null
+    }
+  }
+}

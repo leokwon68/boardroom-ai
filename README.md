@@ -36,6 +36,8 @@ Zero config: if you have **Claude Code, Codex CLI, or Gemini CLI** installed, it
 
 **On your phone, no telegram.** Run `boardroom` and it prints a `http://<your-lan-ip>:PORT` link (+ a QR code if `qrencode` is installed) — open it on a phone on the same wifi for the full app: convene, approve, execute. Away from home? `boardroom share` opens a token-gated public link via cloudflared. Tap 🔔 for lock-screen push when your board finds work or needs approval (iPhone: Add to Home Screen first).
 
+**Mac menubar app.** A real desktop program lives in `desktop/` — a menu-bar app that runs the board 24/7 and opens the UI in its own window (execution needs this machine: your `claude` CLI + your logged-in browser). Dev: `cd desktop && npm install && npm start`. Build a `.dmg`: `npm run dist` → `desktop/dist/Boardroom-<ver>-arm64.dmg`. The app carries its own runtime, so end users need no Node.
+
 - **Staff** — hire seats with lenses that match your business. Mix models per seat (chair on Fable, seats on Sonnet, a GPT seat alongside).
 - **Boardroom** — bring one decision, or flip on Autopilot and let the company run itself.
 - **Approvals** — everything the company wants to do waits here for your Execute/Decline.
