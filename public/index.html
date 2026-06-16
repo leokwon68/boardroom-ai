@@ -9,35 +9,38 @@
 <link rel="apple-touch-icon" href="/icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Boardroom">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
   :root {
-    /* warm editorial — a daily briefing, not a generic SaaS. ink on paper, one ember accent */
-    --bg: #ece7dd; --card: #faf7f1; --card2: #f1ece2; --ink: #20140d; --dim: #8c8073;
-    --line: #ded6c7; --line2: #cabfad; --accent: #e0502a; --accent-2: #b23410; --accent-ink: #b23410;
-    --amber: #c98a1a; --red: #c0392b; --green: #3f8f5b;
-    --grad: linear-gradient(135deg, #ef6a3d 0%, #d8431b 100%);
-    --glow: 0 10px 30px -10px rgba(216,67,27,.35);
-    --shadow: 0 1px 2px rgba(60,40,20,.05), 0 14px 34px -18px rgba(60,40,20,.3);
+    /* dark studio — matches the Office game. one warm gold accent + cyan hints */
+    --bg: #0a0b10; --card: #13161f; --card2: #181c27; --ink: #eef1f7; --dim: #7b8298;
+    --line: #222736; --line2: #2c3344; --accent: #ffce4d; --accent-2: #ffd76b; --accent-ink: #ffce4d;
+    --amber: #f0b84e; --red: #f25c5c; --green: #5fd98a; --cyan: #48e0d0;
+    --grad: linear-gradient(135deg, #ffd76b 0%, #f0b84e 100%);
+    --glow: 0 10px 34px -10px rgba(255,206,77,.30);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 44px -20px rgba(0,0,0,.7);
     --radius: 16px;
     --mono: "SF Mono", "JetBrains Mono", Menlo, monospace;
-    --serif: "Georgia", "Iowan Old Style", "Apple SD Gothic Neo", serif;
+    --sans: "Inter", -apple-system, system-ui, sans-serif;
+    --serif: "Fredoka", "Inter", system-ui, sans-serif;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--ink); font-family: Inter, -apple-system, "SF Pro Text", "Apple SD Gothic Neo", sans-serif; min-height: 100vh; font-size: 15px;
-    -webkit-font-smoothing: antialiased; letter-spacing: -.2px; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); min-height: 100vh; font-size: 15px;
+    -webkit-font-smoothing: antialiased; letter-spacing: -.3px; }
   ::selection { background: rgba(216,67,27,.18); }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: #d1d6db; border-radius: 99px; border: 2px solid var(--bg); }
-  ::-webkit-scrollbar-thumb:hover { background: #b9c0c8; }
+  ::-webkit-scrollbar-thumb { background: #2c3344; border-radius: 99px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4256; }
   * { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .12s ease; }
   /* app shell: fixed left sidebar + scrolling main */
   .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
-  .sidebar { border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; background: #fff; }
+  .sidebar { border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; background: #0d0f16; }
   .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; letter-spacing: -.3px; padding: 6px 10px 18px; }
   .brand .mk { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; box-shadow: 0 4px 12px -3px rgba(216,67,27,.5); }
   .brand .ver { color: var(--dim); font-size: 10px; font-family: var(--mono); font-weight: 500; margin-left: auto; }
   nav { display: flex; flex-direction: column; gap: 3px; }
-  nav button { display: flex; align-items: center; gap: 11px; border: 0; background: transparent; color: #4e5968; font-weight: 600; font-size: 14.5px; padding: 11px 12px; border-radius: 12px; cursor: pointer; font-family: inherit; text-align: left; width: 100%; position: relative; }
+  nav button { display: flex; align-items: center; gap: 11px; border: 0; background: transparent; color: var(--dim); font-weight: 600; font-size: 14.5px; padding: 11px 12px; border-radius: 12px; cursor: pointer; font-family: inherit; text-align: left; width: 100%; position: relative; }
   nav button:hover { background: var(--bg); color: var(--ink); }
   nav button.on { background: rgba(216,67,27,.1); color: var(--accent); font-weight: 700; }
   nav button .ico { width: 17px; text-align: center; opacity: .95; }
@@ -63,14 +66,14 @@
   .th-headline { margin-top: 6px; font-size: 23px; line-height: 1.34; letter-spacing: -.6px; font-weight: 800;
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .th-chip { margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; color: var(--dim); }
-  .th-chip span { color: #4e5968; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .th-chip span { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* briefing — reads like your chief of staff telling you the one thing */
   .brief-greet { font-family: var(--serif); font-size: 15px; color: var(--dim); margin-bottom: 12px; font-style: italic; }
   .brief-from { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
   .brief-title { font-family: var(--serif); margin-top: 10px; font-size: 30px; line-height: 1.25; letter-spacing: -.5px; font-weight: 700; color: var(--ink); }
   .brief-get { margin-top: 14px; font-size: 14px; color: var(--dim); } .brief-get b { color: var(--ink); font-weight: 600; }
   .th-actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
-  .th-go { background: var(--accent) !important; color: #fff !important; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(216,67,27,.6); }
+  .th-go { background: var(--accent) !important; color: #1a1505 !important; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(216,67,27,.6); }
   /* connections */
   .conngrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; margin-top: 22px; }
   .conn { border: 1px solid var(--line); border-radius: 18px; padding: 20px; background: var(--card); position: relative; box-shadow: var(--shadow); }
@@ -81,9 +84,9 @@
   .conn h3 { font-size: 15.5px; font-weight: 700; }
   .conn .cstat { font-size: 11.5px; font-weight: 700; color: var(--dim); }
   .conn.on .cstat { color: var(--accent); }
-  .conn .cblurb { font-size: 13.5px; color: #4e5968; line-height: 1.55; margin-top: 14px; }
+  .conn .cblurb { font-size: 13.5px; color: var(--dim); line-height: 1.55; margin-top: 14px; }
   .conn .cex { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .conn .cex span { font-size: 12px; color: #4e5968; background: var(--bg); border-radius: 99px; padding: 5px 11px; }
+  .conn .cex span { font-size: 12px; color: var(--dim); background: var(--bg); border-radius: 99px; padding: 5px 11px; }
   .sw { width: 46px; height: 27px; border-radius: 99px; background: #d5dadf; border: 0; cursor: pointer; position: relative; transition: background .18s; }
   .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .18s; }
   .sw.on { background: var(--accent); } .sw.on::after { transform: translateX(19px); }
@@ -109,13 +112,13 @@
   .keyrow { display: none; margin-top: 16px; gap: 10px; }
   .keyrow.show { display: flex; }
   input, textarea { font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; width: 100%; background: var(--card2); color: var(--ink); }
-  input, textarea { background: #fff; }
+  input, textarea { background: #0b0d14; color: var(--ink); border-color: var(--line); }
   input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(216,67,27,.15); }
-  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; padding: 13px 22px; border-radius: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; box-shadow: 0 6px 16px -8px rgba(216,67,27,.6); }
+  .btn { border: 0; background: var(--accent); color: #1a1505; font-weight: 700; font-size: 15px; padding: 13px 22px; border-radius: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; box-shadow: 0 6px 16px -8px rgba(216,67,27,.6); }
   .btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
   .btn:active { transform: translateY(0); filter: brightness(.97); }
-  .btn.ghost { background: #f2f4f6; color: #4e5968; border: 0; box-shadow: none; }
-  .btn.ghost:hover { background: #e8ebed; filter: none; transform: none; }
+  .btn.ghost { background: #1c2130; color: #cdd3e2; border: 0; box-shadow: inset 0 0 0 1px var(--line); }
+  .btn.ghost:hover { background: #222838; filter: none; transform: none; }
   .btn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; filter: none; }
 
   /* staff */
@@ -309,6 +312,7 @@
       <button data-v="meeting"><span class="ico">▦</span> <span>Ask the board</span></button>
       <button data-v="connect"><span class="ico">🔌</span> <span>Connections</span></button>
       <button data-v="office"><span class="ico">👥</span> Staff</button>
+      <button onclick="location.href='/office'"><span class="ico">🏢</span> Office <span style="margin-left:auto; font-size:10px; color:var(--dim)">game</span></button>
       <button data-v="approvals"><span class="ico">✓</span> Approvals <span id="qbadge" style="display:none; margin-left:auto; background:var(--amber); color:#0b0d11; border-radius:99px; padding:1px 7px; font-size:10px; font-weight:800"></span></button>
       <button data-v="reports"><span class="ico">📄</span> Reports</button>
       <button data-v="ledger"><span class="ico">📈</span> Ledger</button>
@@ -317,8 +321,8 @@
     <div class="side-foot">
       <div class="ctrls">
         <button id="sfx" title="sound" style="flex:1; padding:7px; font-size:13px; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">🔊</button>
-        <select id="lang" style="flex:1; padding:6px 8px; font-size:12px">
-          <option value="en">EN</option><option value="ko">한국어</option>
+        <select id="lang" style="display:none">
+          <option value="en">EN</option>
         </select>
         <button id="fz" title="text size" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">A<sup style="font-size:9px">+</sup></button>
         <button id="htbtn" title="how it works" style="flex:0 0 auto; padding:7px 11px; font-size:13px; font-weight:700; background:var(--card2); border:1px solid var(--line); border-radius:8px; cursor:pointer; color:var(--ink)">?</button>
@@ -336,7 +340,7 @@
   <section class="view" id="v-connect">
     <div style="max-width:760px">
       <h1>🔌 <span>Connections</span></h1>
-      <p class="sub" id="connect-sub">연결할수록 AI가 해줄 수 있는 일이 늘어나요. 켜기만 하면 — 당신 계정으로, 당신 크레딧으로 직접 일합니다.</p>
+      <p class="sub" id="connect-sub">The more you connect, the more your AI can actually do — running in your own account, on your own credits. Just flip it on.</p>
       <div id="connectgrid" class="conngrid"></div>
     </div>
   </section>
@@ -402,6 +406,7 @@
       <div id="ready" class="ready"></div>
       <h2 class="askhead" data-i18n="askhead">Bring a decision to the board ↓</h2>
       <p class="asksub" data-i18n="asksub">Type any decision you're facing, then press Convene. The board debates it live.</p>
+      <div id="memchip" style="display:none; margin:8px 0 0; padding:9px 13px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.28); border-radius:10px; font-size:12.5px; color:var(--accent); cursor:pointer"></div>
       <div id="usagebar" style="display:none; margin:2px 0 0; font-size:12.5px; color:var(--dim)"></div>
       <div id="exq" style="display:flex; gap:7px; flex-wrap:wrap; margin:10px 0 2px"></div>
       <div class="askrow">
@@ -423,6 +428,7 @@
       <div class="feed" id="feed"></div>
       <div class="verdictcard" id="vc"></div>
       <div class="execfeed" id="execfeed"></div>
+      <p id="globaldisc" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line); font-size:11px; line-height:1.6; color:var(--dim)"></p>
     </div>
   </section>
 
@@ -481,7 +487,7 @@
         <div data-i18n="up-f4">✓ Autopilot every 30 min</div>
         <div data-i18n="up-f5">✓ 5 board seats</div>
       </div>
-      <button class="btn upbuy" data-tier="pro" data-interval="month" style="width:100%; margin-top:14px; background:var(--accent); color:#fff" data-i18n="up-choose-pro">Choose Pro</button>
+      <button class="btn upbuy" data-tier="pro" data-interval="month" style="width:100%; margin-top:14px; background:var(--accent); color:#1a1505" data-i18n="up-choose-pro">Choose Pro</button>
       <button class="upbuy" data-tier="pro" data-interval="year" style="width:100%; margin-top:7px; background:transparent; border:0; color:var(--dim); font-size:11.5px; cursor:pointer; font-family:inherit" data-i18n="up-payyr">Pay yearly ($299)</button>
     </div>
     <div style="flex:1; min-width:240px; border:1px solid var(--amber); border-radius:13px; padding:16px; background:linear-gradient(180deg, rgba(232,180,79,.06), transparent)">
@@ -512,6 +518,14 @@
   <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:6px">
     <button class="btn ghost" onclick="hire.close()">Cancel</button>
     <button class="btn" id="h-save">Hire</button>
+  </div>
+</dialog>
+
+<dialog id="consentdlg" style="max-width:540px">
+  <h3 id="consent-h" style="margin-bottom:10px">Before you start</h3>
+  <p id="consent-body" style="font-size:13px; line-height:1.7; color:var(--dim)"></p>
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px">
+    <button class="btn" id="consent-ok">I understand — continue</button>
   </div>
 </dialog>
 
@@ -566,10 +580,23 @@ async function refresh() {
   if (CUR === 'today') loadToday();
 }
 async function renderHero() {
+  let decN = 0;
   try {
     const { stats } = await (await fetch('/api/ledger')).json();
-    if (stats) { $('h-avg').textContent = stats.avg == null ? '—' : ('.' + String(Math.round(stats.avg * 1000)).padStart(3, '0')); $('h-dec').textContent = stats.total || 0; }
+    if (stats) { decN = stats.total || 0; $('h-avg').textContent = stats.avg == null ? '—' : ('.' + String(Math.round(stats.avg * 1000)).padStart(3, '0')); $('h-dec').textContent = decN; }
   } catch {}
+  // memory cue — the board carries your profile + past rulings into every meeting
+  const mc = $('memchip');
+  if (mc) {
+    const remembers = STATE.owner && STATE.owner.trim();
+    if (remembers) {
+      mc.style.display = 'block';
+      mc.innerHTML = TL(
+        `🧠 보드가 당신을 기억합니다 — 프로필과 지난 결정 ${decN}건을 매 회의에 반영해요. 지난 결정을 이어서 다시 물어봐도 됩니다 →`,
+        `🧠 Your board remembers you — it carries your profile and ${decN} past ruling${decN === 1 ? '' : 's'} into every meeting. You can re-open any past decision →`);
+      mc.onclick = () => show('reports');
+    } else { mc.style.display = 'none'; }
+  }
   const on = STATE.autopilot && STATE.autopilot.enabled;
   const dot = $('h-auto').querySelector('.livedotmini'); if (dot) dot.style.opacity = on ? '1' : '.2';
   $('h-auto-t').textContent = on ? '24/7' : (LANG === 'ko' ? '꺼짐' : 'off');
@@ -883,6 +910,7 @@ async function play(ev) {
   if (ev.type === 'done' && ev.direct) {
     // single-agent task: no verdict ring/ledger theater — just the answer + keep-talking box
     setActive(null); stopClock(); sfx.done();
+    if (ev.disclaimer) feed.insertAdjacentHTML('beforeend', `<div class="vc-disc" style="margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-size:11px; line-height:1.6; color:var(--dim)">⚖ ${ev.disclaimer.replace(/</g,'&lt;')}</div>`);
     LAST_TRANSCRIPT = (LAST_TRANSCRIPT ? LAST_TRANSCRIPT + '\n\n---\n\n' : '') + (ev.minutes || '');
     renderFollowBox();
     return;
@@ -909,7 +937,8 @@ async function play(ev) {
           ${deltaHTML(ev.delta)}
           <div style="margin-top:14px"><button class="btn" id="execbtn" style="background:var(--green); color:#0b0d11">▶ ${t('Execute this verdict')}</button></div>
         </div>
-      </div>`;
+      </div>
+      ${ev.disclaimer ? `<div class="vc-disc" style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); font-size:11px; line-height:1.6; color:var(--dim)">⚖ ${ev.disclaimer.replace(/</g,'&lt;')}</div>` : ''}`;
     $('execbtn').onclick = async () => {
       $('execbtn').disabled = true; $('execbtn').textContent = t('Filing plan…');
       await fetch('/api/queue/add', { method: 'POST', body: JSON.stringify({ file: LAST_MINUTES }) });
@@ -978,7 +1007,7 @@ async function runStream(url, payload, append) {
     $('vc').style.display = 'none';
     const fb = $('followbox'); if (fb) fb.remove();
     $('feed').insertAdjacentHTML('beforeend',
-      `<div class="bub" style="flex-direction:row-reverse"><div class="av" style="background:var(--accent); color:#fff">YOU</div>
+      `<div class="bub" style="flex-direction:row-reverse"><div class="av" style="background:var(--accent); color:#1a1505">YOU</div>
        <div class="body" style="background:rgba(59,130,246,.10); border-color:rgba(59,130,246,.3)"><div class="txt">${(payload.question||'').replace(/</g,'&lt;')}</div></div></div>`);
     $('feed').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
@@ -1017,12 +1046,13 @@ function renderExamples() {
 
 // keep the conversation going — same board, prior transcript as context
 let LAST_TRANSCRIPT = '';
-function renderFollowBox() {
+function renderFollowBox(reopenQ) {
   let fb = $('followbox');
   if (!fb) { fb = document.createElement('div'); fb.id = 'followbox'; $('vc').after(fb); }
-  fb.innerHTML = `<div class="askhead" style="font-size:15px; margin-top:20px">${t('Keep talking to the board')}</div>
+  const banner = reopenQ ? `<div style="margin-top:18px; padding:9px 13px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.28); border-radius:10px; font-size:12.5px; color:var(--accent)">↩ ${TL('지난 결정을 이어서 논의 중','Continuing a past decision')}: <b>${(reopenQ||'').replace(/</g,'&lt;')}</b><br><span style="color:var(--dim)">${TL('보드가 그때 판결을 기억한 채로 이어서 답합니다.','The board answers with that prior ruling in mind.')}</span></div>` : '';
+  fb.innerHTML = `${banner}<div class="askhead" style="font-size:15px; margin-top:20px">${reopenQ ? TL('이어서 다시 묻기','Re-open with the board') : t('Keep talking to the board')}</div>
     <p class="asksub">${t('Push back, add context, or ask a follow-up — the same board answers with everything above in mind.')}</p>
-    <div class="askrow"><input id="fq" placeholder="${t('I disagree because… / what about…?')}"><button class="btn" id="fgo">${t('Send')}</button></div>`;
+    <div class="askrow"><input id="fq" placeholder="${reopenQ ? TL('그때 이후 이렇게 바뀌었는데 다시 봐줘…','Since then this changed — reconsider…') : t('I disagree because… / what about…?')}"><button class="btn" id="fgo">${t('Send')}</button></div>`;
   $('fgo').onclick = sendFollow;
   $('fq').addEventListener('keydown', e => { if (e.key === 'Enter') sendFollow(); });
   $('fq').focus();
@@ -1115,14 +1145,25 @@ async function loadLedger() {
 async function loadReports() {
   const { list } = await (await fetch('/api/minutes')).json();
   $('report-body').style.display = 'none';
-  $('reports').innerHTML = list.length ? `<table><tr><th>question</th><th>result</th></tr>` +
-    list.map(r => `<tr style="cursor:pointer" data-f="${r.file}"><td>${r.question.replace(/</g,'&lt;')}</td><td style="white-space:nowrap; font-family:var(--mono); font-size:11px; color:var(--dim)">${plainKeys(r.meta)}</td><td><button class="btn ghost" data-exec="${r.file}" style="padding:5px 10px; font-size:11px">▶</button></td></tr>`).join('') + '</table>'
+  $('reports').innerHTML = list.length ? `<table><tr><th>question</th><th>result</th><th></th></tr>` +
+    list.map(r => `<tr style="cursor:pointer" data-f="${r.file}" data-q="${r.question.replace(/"/g,'&quot;').replace(/</g,'&lt;')}"><td>${r.question.replace(/</g,'&lt;')}</td><td style="white-space:nowrap; font-family:var(--mono); font-size:11px; color:var(--dim)">${plainKeys(r.meta)}</td><td style="white-space:nowrap"><button class="btn ghost" data-reopen="${r.file}" title="${TL('이 결정을 이어서 다시 논의','re-open & continue this decision')}" style="padding:5px 10px; font-size:11px">↩ ${TL('이어서','continue')}</button> <button class="btn ghost" data-exec="${r.file}" style="padding:5px 10px; font-size:11px">▶</button></td></tr>`).join('') + '</table>'
     : '<p class="sub" style="margin-top:16px">No reports yet. Convene a meeting or hit Autopilot.</p>';
   applyLang(LANG);
   document.querySelectorAll('#reports [data-exec]').forEach(b => b.onclick = async e => {
     e.stopPropagation(); b.textContent = '…';
     await fetch('/api/queue/add', { method: 'POST', body: JSON.stringify({ file: b.dataset.exec }) });
     show('approvals'); refresh();
+  });
+  // ↩ re-open: load the saved minutes as context and continue the SAME thread with the board
+  document.querySelectorAll('#reports [data-reopen]').forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    const q = b.closest('tr').dataset.q || '';
+    const { md } = await (await fetch('/api/minutes?f=' + encodeURIComponent(b.dataset.reopen))).json();
+    LAST_TRANSCRIPT = md || '';
+    show('meeting');
+    $('vc').style.display = 'none'; $('feed').innerHTML = ''; $('execfeed').style.display = 'none';
+    renderFollowBox(q);
+    $('feed').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   document.querySelectorAll('#reports tr[data-f]').forEach(tr => tr.onclick = async () => {
     const { md } = await (await fetch('/api/minutes?f=' + encodeURIComponent(tr.dataset.f))).json();
@@ -1277,7 +1318,7 @@ const KO = {
   'Checkout failed. Please try again.': '결제 실패. 다시 시도해주세요.',
   "🎉 You're on Pro — unlimited meetings unlocked.": '🎉 Pro 전환 완료 — 무제한 회의가 열렸습니다.',
 };
-let LANG = localStorage.getItem('br-lang') || 'ko';
+let LANG = 'en';   // English-only (global B2B target)
 function t(en) { return LANG === 'ko' && KO[en] ? KO[en] : en; }
 
 // ── sound — subtle JARVIS-like cues, toggleable ──
@@ -1431,10 +1472,27 @@ function applyLang(lang) {
     if (lang === 'ko' && KO[cur]) { el.dataset.en = cur; el.textContent = KO[cur]; }
     else if (lang === 'en' && el.dataset.en) { el.textContent = el.dataset.en; }
   });
+  // liability disclaimer — persistent footer + first-run consent (same text, bilingual)
+  const DISC_SHORT = lang === 'ko'
+    ? 'Boardroom은 의사결정 보조 도구입니다. 출력은 AI가 생성한 의견이며 법률·재무·세무·투자·의료 등 전문가 자문이 아닙니다. 최종 판단과 그에 따른 모든 책임은 사용자에게 있으며, 중대하거나 되돌리기 어려운 결정은 실행 전 독립적으로 검증하세요. 서비스는 어떠한 보증도 없이 "있는 그대로" 제공됩니다.'
+    : 'Boardroom is a decision-support tool. Its outputs are AI-generated opinions, not professional (legal, financial, tax, investment, or medical) advice. You are the sole decision-maker and bear full responsibility for any action you take; independently verify high-stakes or irreversible decisions before acting. The service is provided "as is" without warranties of any kind.';
+  const gd = $('globaldisc'); if (gd) gd.textContent = '⚖ ' + DISC_SHORT;
+  const cb = $('consent-body'); if (cb) cb.textContent = DISC_SHORT;
+  const ch = $('consent-h'); if (ch) ch.textContent = lang === 'ko' ? '시작하기 전에' : 'Before you start';
+  const co = $('consent-ok'); if (co) co.textContent = lang === 'ko' ? '이해했습니다 — 계속' : 'I understand — continue';
 }
-$('lang').value = localStorage.getItem('br-lang') || 'ko';
+$('lang').value = 'en';
 $('lang').onchange = () => { applyLang($('lang').value); fetch('/api/config', { method: 'POST', body: JSON.stringify({ lang: $('lang').value }) }).catch(() => {}); };
 setTimeout(() => applyLang($('lang').value), 400);
+// first-run liability consent — shown once, recorded in localStorage
+setTimeout(() => {
+  let seen = false; try { seen = !!localStorage.getItem('br-consent'); } catch {}
+  if (seen) return;
+  const dlg = $('consentdlg'); if (!dlg) return;
+  applyLang(LANG);
+  const ok = $('consent-ok'); if (ok) ok.onclick = () => { try { localStorage.setItem('br-consent', '1'); } catch {} dlg.close(); };
+  try { if (!dlg.open) dlg.showModal(); } catch {}
+}, 700);
 
 // ── Today — the daily operator surface. The reason to open this over GPT: ──
 // GPT answers when asked; this shows what it already did + what needs your yes.
@@ -1457,7 +1515,7 @@ function renderToday() {
       <p class="sub">${TL('GPT는 물어봐야 답해요. 이건 안 물어봐도 일해요 — 매일 당신 사업에서 가장 중요한 한 가지를 찾아 준비해두고, 승인만 받아요.','GPT answers when you ask. This works when you do not — every day it finds the one thing that matters most in your business, prepares it, and waits for your yes.')}</p>
       <p class="sub" style="margin-top:14px; font-weight:600; color:var(--ink)">${TL('당신 사업·일을 한 줄로 알려주세요.','Tell it, in one line, what business it runs for you.')}</p>
       <textarea id="ownerin" rows="3" placeholder="${TL('예: 강남에서 필라테스 스튜디오 운영. 예약·노쇼 관리가 제일 골치.','e.g. I run a pilates studio in Seoul; bookings and no-shows are my biggest headache.')}" style="width:100%; margin-top:8px; padding:12px; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--ink); font-size:14px; resize:vertical"></textarea>
-      <button class="btn" id="ownersave" style="margin-top:12px; background:var(--accent); color:#fff">${TL('시작하기','Start')}</button>
+      <button class="btn" id="ownersave" style="margin-top:12px; background:var(--accent); color:#1a1505">${TL('시작하기','Start')}</button>
     </div>`;
     $('ownersave').onclick = async () => {
       const text = $('ownerin').value.trim(); if (!text) return;
@@ -1508,7 +1566,7 @@ function renderToday() {
       <div class="card">
         <h1 style="font-size:19px">${d.notice ? esc(d.notice) : TL('아직 올라온 안건이 없어요.','Nothing on the agenda yet.')}</h1>
         <p class="sub" style="margin-top:10px">${TL('보드를 한 번 돌려서 지금 가장 중요한 한 가지를 찾아올까요?','Run the board once to find the single most useful thing right now?')}</p>
-        <button class="btn" id="trun" style="margin-top:14px; background:var(--accent); color:#fff; font-weight:700">${TL('지금 한번 돌려보기','Find today’s thing')}</button>
+        <button class="btn" id="trun" style="margin-top:14px; background:var(--accent); color:#1a1505; font-weight:700">${TL('지금 한번 돌려보기','Find today’s thing')}</button>
         <div class="execfeed" id="texec"></div>
       </div>
       ${d.recent && d.recent.length ? `<div class="card" style="margin-top:14px"><div class="sub">${TL('최근 한 일','recently')}</div><ul style="margin-top:8px; list-style:none; padding:0; font-size:13px">${d.recent.map(r => `<li style="margin:5px 0; color:var(--dim)">· ${esc(r.text)}</li>`).join('')}</ul></div>` : ''}

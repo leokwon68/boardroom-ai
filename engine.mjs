@@ -228,6 +228,7 @@ export async function runMeeting(question, onEvent, opts = {}) {
   const divTag = opts.division ? `[${opts.division}] ` : '';
   const roles = roleModels();
   const LOCK = langLock(question);
+  const MEM = recallContext();  // the board's memory of this owner, injected in-band
   // per-seat models: staff[].model overrides the seat default (chief=fable, seats=sonnet, gpt mix — all valid)
   const seatAskMap = {};
   for (const st of staff) seatAskMap[st.id] = withLock(await askWith(st.model || roles.seat), LOCK);
@@ -254,7 +255,7 @@ SOLO: your direct recommendation or answer in one sentence.`).catch(() => '');
   const openings = await Promise.all(staff.map(s => askSeat(s)(`${VOICE}
 You are ${s.name}, the ${s.id} seat. Your lens: ${s.lens}
 
-The chair just asked the board: "${question}"
+The chair just asked the board: "${question}"${MEM}
 
 Give your gut take and the one thing everyone else is probably missing.`)));
   openings.forEach((text, i) => { log(staff[i], text); onEvent('msg', { round: 'OPENING', seat: staff[i], text }); });
@@ -307,7 +308,7 @@ Final stance, max 35 words: what do you now recommend, and what in this discussi
   const verdict = await askChair(`${ISOLATE}
 You chair this board. The discussion is over — now rule. Write like a decisive human chair, not a report.
 
-Agenda: "${question}"
+Agenda: "${question}"${MEM}
 
 Full meeting transcript:
 ${tjoin()}
@@ -370,13 +371,15 @@ Be specific and honest. No flattery, no padding.`).catch(() => '');
   const review = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
   const status = survives ? 'CONFIRMED' : 'DOWNGRADED';
   const minutesPath = join(HOME, `${stamp}.md`);
-  writeFileSync(minutesPath, `# Boardroom — ${divTag}${question}\n\n## Transcript\n${packet}\n\n_status: ${status} · confidence: ${adjConf} · review: ${review}_\n`);
+  writeFileSync(minutesPath, `# Boardroom — ${divTag}${question}\n\n## Transcript\n${packet}\n\n_status: ${status} · confidence: ${adjConf} · review: ${review}_\n\n---\n${disclaimerFor(question)}\n`);
   const ledgerPath = join(HOME, 'ledger.md');
   if (!existsSync(ledgerPath)) appendFileSync(ledgerPath, '| date | question | decision | conf | status | review | outcome |\n|---|---|---|---|---|---|---|\n');
   appendFileSync(ledgerPath, `| ${new Date().toISOString().slice(0, 10)} | ${(divTag + question).slice(0, 60)} | ${(verdict.match(/DECISION:\s*(.*)/i) || [])[1]?.slice(0, 80) || ''} | ${adjConf} | ${status} | ${review} | pending |\n`);
 
-  const result = { verdict, red, survives, confidence: adjConf, review, status, minutesPath, secs: Math.round((Date.now() - t0) / 1000), solo, delta };
+  const result = { verdict, red, survives, confidence: adjConf, review, status, minutesPath, secs: Math.round((Date.now() - t0) / 1000), solo, delta, disclaimer: disclaimerFor(question) };
   onEvent('done', result);
+  // learn the owner from every real meeting (autopilot learns separately → noLearn)
+  if (!opts.noLearn) learnOwner(question, (verdict.match(/DECISION:\s*(.*)/i) || [])[1] || verdict.slice(0, 200)).catch(() => {});
   return result;
 }
 
@@ -399,16 +402,18 @@ export async function runDirect(question, title, onEvent) {
   const ask = withLock(await askWith(roleModels().chair), langLock(question));
   const name = title || 'Specialist';
   const seat = { id: 'specialist', name, emoji: '🎯' };
+  const MEM = recallContext();
   onEvent('start', { question, staff: [seat] });
   onEvent('round', { round: 'TASK', label: `Chief of staff: no debate needed — handled by ${name}` });
   onEvent('speaking', { seat });
-  const text = await ask(`${ISOLATE}\nYou are "${name}" — the single specialist assigned to this task.\nTASK: ${question}\nDeliver the complete answer in the task's own frame (a reading stays a reading, a summary stays a summary). Match the request's language. Be thorough but tight; no meta-commentary, no refusals, at most one brief caveat if genuinely needed.`);
+  const text = await ask(`${ISOLATE}\nYou are "${name}" — the single specialist assigned to this task.\nTASK: ${question}${MEM}\nDeliver the complete answer in the task's own frame (a reading stays a reading, a summary stays a summary). Match the request's language. Be thorough but tight; no meta-commentary, no refusals, at most one brief caveat if genuinely needed.`);
   onEvent('msg', { round: 'TASK', seat, text });
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const minutesPath = join(HOME, `${stamp}.md`);
-  writeFileSync(minutesPath, `# Boardroom — ${question}\n\n## ${name}\n\n${text}\n\n_status: ANSWERED_\n`);
-  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true };
+  writeFileSync(minutesPath, `# Boardroom — ${question}\n\n## ${name}\n\n${text}\n\n_status: ANSWERED_\n\n---\n${disclaimerFor(question)}\n`);
+  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true, disclaimer: disclaimerFor(question) };
   onEvent('done', result);
+  learnOwner(question, text.slice(0, 200)).catch(() => {});
   return result;
 }
 
@@ -419,20 +424,22 @@ export async function runStaffChat(question, staff, onEvent) {
   const t0 = Date.now();
   const ask = withLock(await askWith(staff.model || roleModels().seat), langLock(question));
   const seat = { id: staff.id, name: staff.name, emoji: staff.emoji || '💬' };
+  const MEM = recallContext();
   onEvent('start', { question, staff: [seat] });
   onEvent('round', { round: '1:1', label: `1:1 · ${staff.name}` });
   onEvent('speaking', { seat });
   const text = await ask(`${VOICE}
 You are ${staff.name}, the ${staff.id} on this team. Your lens: ${staff.lens || 'your specialty'}
 The owner just walked up to your desk for a quick 1:1 and asked:
-"${question}"
+"${question}"${MEM}
 Answer directly and personally, in your own voice — just you, no board, no debate. Match the request's language and frame (a reading stays a reading, a task gets done). Be helpful and tight; no meta-commentary, no refusals, at most one short caveat if genuinely needed.`);
   onEvent('msg', { round: '1:1', seat, text });
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const minutesPath = join(HOME, `${stamp}.md`);
-  writeFileSync(minutesPath, `# 1:1 — ${staff.name}\n\n## ${question}\n\n${text}\n\n_status: ANSWERED_\n`);
-  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true };
+  writeFileSync(minutesPath, `# 1:1 — ${staff.name}\n\n## ${question}\n\n${text}\n\n_status: ANSWERED_\n\n---\n${disclaimerFor(question)}\n`);
+  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true, disclaimer: disclaimerFor(question) };
   onEvent('done', result);
+  learnOwner(question, text.slice(0, 200)).catch(() => {});
   return result;
 }
 
@@ -446,7 +453,7 @@ export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
   const CHAIR = { id: 'chair', name: 'Chair', emoji: '👑' };
   onEvent('start', { question: userMsg, staff });
   onEvent('round', { round: 'FOLLOW-UP', label: 'The board responds' });
-  const ctx = `Earlier, this board met and ruled. Transcript + verdict:\n${String(history).slice(0, 4500)}\n\nThe owner now responds / asks:\n"${userMsg}"`;
+  const ctx = `Earlier, this board met and ruled. Transcript + verdict:\n${String(history).slice(0, 4500)}\n\nThe owner now responds / asks:\n"${userMsg}"${recallContext()}`;
   const reactions = [];
   for (const s of staff) {
     onEvent('speaking', { seat: s });
@@ -486,6 +493,37 @@ export function saveOwner(text) {
   if (t) writeFileSync(OWNER_PATH, t + '\n');
   return t;
 }
+
+// ── MEMORY ──────────────────────────────────────────────────────────────
+// The client's own record, handed to the board IN-BAND. ISOLATE forbids *ambient*
+// memory (global files, other clients) — but THIS is the owner's own profile plus the
+// decisions THIS board itself made with them. So we pass it explicitly and tell the board
+// to use it. This is what makes Boardroom feel continuous instead of a stranger every time.
+export function recallContext() {
+  const owner = loadOwner().trim();
+  let ledger = '';
+  try {
+    const rows = readFileSync(join(HOME, 'ledger.md'), 'utf8').trim().split('\n').slice(2).filter(Boolean);
+    ledger = rows.slice(-8).join('\n');
+  } catch {}
+  if (!owner && !ledger) return '';
+  let b = '\n\n── MEMORY · what you already know about THIS owner (their own record — refer back to it) ──\n';
+  if (owner) b += `Owner profile:\n${owner}\n`;
+  if (ledger) b += `\nDecisions you (this same board) made with them before:\n| date | topic | decision | conf | status | review | outcome |\n${ledger}\n`;
+  b += '\nThis is the SAME owner you have served before — when relevant, acknowledge continuity ("last time we ruled X, and now…") and stay consistent with past decisions unless something changed. Do not pretend to meet them for the first time.';
+  return b;
+}
+
+// ── LIABILITY / POLICY ──────────────────────────────────────────────────
+// One clear, defensible disclaimer surfaced everywhere a verdict lives (UI, saved minutes).
+// Boardroom commits to decisions + scores itself (the ledger) — that transparency is the
+// accountability story; this disclaimer draws the legal line so "I followed it and lost"
+// can't become liability. Bilingual; pick by the owner's language.
+export const DISCLAIMER = {
+  ko: 'Boardroom은 의사결정 보조 도구입니다. 출력은 AI가 생성한 의견이며 법률·재무·세무·투자·의료 등 전문가 자문이 아닙니다. 최종 판단과 그에 따른 모든 책임은 전적으로 사용자에게 있습니다. 보드는 틀릴 수 있으니, 되돌리기 어렵거나 중대한 결정은 실행 전에 반드시 독립적으로 검증하세요. 본 서비스는 어떠한 보증도 없이 "있는 그대로" 제공됩니다.',
+  en: 'Boardroom is a decision-support tool. Its outputs are AI-generated opinions, not professional (legal, financial, tax, investment, or medical) advice. You are the sole decision-maker and bear full responsibility for any action you take. The board can be wrong — independently verify before acting, especially on high-stakes or irreversible decisions. The service is provided "as is" without warranties of any kind.',
+};
+export function disclaimerFor(text) { return /[가-힣]/.test(String(text || '')) ? DISCLAIMER.ko : DISCLAIMER.en; }
 
 async function learnOwner(question, decision) {
   try {
@@ -552,7 +590,7 @@ Output strict JSON only, one of:
       division = divisions.find(d => d.name === plan.division || d.id === plan.division) || null;
     }
     onEvent('autopilot', { status: 'agenda set', topic: `${division ? division.name + ' · ' : 'HQ · '}${topic}`, noticed: plan.noticed, why_now: plan.why_now });
-    const result = await runMeeting(topic, onEvent, division ? { staff: division.staff, division: division.name } : {});
+    const result = await runMeeting(topic, onEvent, { noLearn: true, ...(division ? { staff: division.staff, division: division.name } : {}) });
     await learnOwner(topic, (result.verdict.match(/DECISION:\s*(.*)/i) || [])[1] || '');
   }
 }

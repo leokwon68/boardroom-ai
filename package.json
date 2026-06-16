@@ -1,6 +1,6 @@
 {
   "name": "boardroom-ai",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Your one-person company, incorporated. A board of AI directors that learns you, picks its own agenda, debates with evidence, rules with a confidence score, scores itself against reality — then an executor that actually does the work after one click.",
   "bin": {
     "boardroom": "bin/boardroom.mjs"
