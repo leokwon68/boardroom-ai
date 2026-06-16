@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, saveOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runFollowUp, CONNECTIONS, loadConnections, saveConnections } from './engine.mjs';
+import { runMeeting, runAutopilot, listMinutes, readMinutes, planExecution, runExecution, loadQueue, saveQueue, enqueuePlan, loadDivisions, loadOwner, saveOwner, loadConfig, saveConfig, loadStaff, saveStaff, claudeCliAvailable, detectKeys, MODEL_CATALOG, DEFAULT_ROLES, roleModels, ledgerData, scoreLedger, loadActivity, logActivity, HOME, triageQuestion, runDirect, runStaffChat, runFollowUp, CONNECTIONS, loadConnections, saveConnections } from './engine.mjs';
 import { vapidPublicKey, addSub, pushNotify, pushEnabled } from './push.mjs';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
@@ -46,13 +46,26 @@ const SRV = createServer(async (req, res) => {
       res.writeHead(401, { 'content-type': 'text/html; charset=utf-8' });
       return res.end('<body style="font-family:system-ui;background:#111;color:#eee;text-align:center;padding:18vh 8vw"><h2>🔒 Boardroom</h2><p>Open the link with its access token (the <code>?t=…</code> from the QR code on your laptop).</p></body>');
     }
-    if (url.pathname === '/' || url.pathname === '/index.html') {
+    // first valid ?t= visit → remember it in a cookie so deep links (incl. /office, /stage) stay clean
+    const htmlHeaders = () => {
       const headers = { 'content-type': 'text/html; charset=utf-8' };
-      // first valid ?t= visit → remember it in a cookie so deep links stay clean
       if (SHARE_TOKEN && !isLoopback(req) && url.searchParams.get('t') === SHARE_TOKEN)
         headers['set-cookie'] = `br_token=${SHARE_TOKEN}; Path=/; Max-Age=2592000; SameSite=Lax`;
-      res.writeHead(200, headers);
+      return headers;
+    };
+    if (url.pathname === '/' || url.pathname === '/index.html') {
+      res.writeHead(200, htmlHeaders());
       return res.end(readFileSync(join(ROOT, 'public', 'index.html')));
+    }
+    // office game view — pixel top-down skin over the real engine
+    if (url.pathname === '/office' || url.pathname === '/office.html') {
+      res.writeHead(200, htmlHeaders());
+      return res.end(readFileSync(join(ROOT, 'public', 'office.html')));
+    }
+    // stage view (cloud board UI ported local for ad recording — real local engine)
+    if (url.pathname === '/stage' || url.pathname === '/stage.html') {
+      res.writeHead(200, htmlHeaders());
+      return res.end(readFileSync(join(ROOT, 'public', 'stage.html')));
     }
     // PWA static — service worker, manifest, icon (needed for lock-screen push)
     const STATIC = { '/sw.js': 'application/javascript', '/manifest.json': 'application/manifest+json', '/icon.png': 'image/png' };
@@ -218,6 +231,11 @@ const SRV = createServer(async (req, res) => {
         if (b.history && String(b.history).trim()) {
           // keep talking to the board — same seats, prior transcript in context
           await runFollowUp(b.history, b.question, send);
+        } else if (b.staffId) {
+          // 1:1 — walk up to one employee at their desk, only they answer (no board machinery)
+          const st = loadStaff().find(s => s.id === b.staffId);
+          if (st) await runStaffChat(b.question, st, send);
+          else await runMeeting(b.question, send);
         } else {
           // chief-of-staff triage: decisions get the board, tasks get one specialist
           const t = await triageQuestion(b.question);

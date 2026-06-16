@@ -217,8 +217,8 @@ You are speaking OUT LOUD in a live board meeting. Hard rules:
 // every seat prompt gets this prepended — a GPT/Sonnet seat that ignores a
 // mid-prompt bullet still obeys a loud first line. Korean board → 0 English seats.
 function langLock(text) {
-  if (/[가-힣]/.test(String(text))) return `LANGUAGE LOCK: Respond ENTIRELY in Korean (한국어). Not one English sentence. Product/brand names may stay in English; everything else — every sentence — is Korean. This overrides any English in your role description.\n\n`;
-  return '';
+  // English-only product — always lock to English so no seat drifts into another language.
+  return `LANGUAGE LOCK: Respond ENTIRELY in English. Not one non-English sentence. This overrides any other language in your role description.\n\n`;
 }
 // wrap an ask fn so the lock is always prepended
 const withLock = (fn, lock) => (prompt => fn(lock + prompt));
@@ -412,6 +412,30 @@ export async function runDirect(question, title, onEvent) {
   return result;
 }
 
+// 1:1 — owner walks up to a single employee at their desk. ONLY that person answers,
+// in their own voice/lens. No chair, no red team, no solo-vs-board, no ledger — a casual
+// chat, not a board meeting. Fast and cheap by design.
+export async function runStaffChat(question, staff, onEvent) {
+  const t0 = Date.now();
+  const ask = withLock(await askWith(staff.model || roleModels().seat), langLock(question));
+  const seat = { id: staff.id, name: staff.name, emoji: staff.emoji || '💬' };
+  onEvent('start', { question, staff: [seat] });
+  onEvent('round', { round: '1:1', label: `1:1 · ${staff.name}` });
+  onEvent('speaking', { seat });
+  const text = await ask(`${VOICE}
+You are ${staff.name}, the ${staff.id} on this team. Your lens: ${staff.lens || 'your specialty'}
+The owner just walked up to your desk for a quick 1:1 and asked:
+"${question}"
+Answer directly and personally, in your own voice — just you, no board, no debate. Match the request's language and frame (a reading stays a reading, a task gets done). Be helpful and tight; no meta-commentary, no refusals, at most one short caveat if genuinely needed.`);
+  onEvent('msg', { round: '1:1', seat, text });
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const minutesPath = join(HOME, `${stamp}.md`);
+  writeFileSync(minutesPath, `# 1:1 — ${staff.name}\n\n## ${question}\n\n${text}\n\n_status: ANSWERED_\n`);
+  const result = { verdict: text, red: '', survives: true, confidence: 0, review: '', status: 'ANSWERED', minutesPath, secs: Math.round((Date.now() - t0) / 1000), direct: true };
+  onEvent('done', result);
+  return result;
+}
+
 // follow-up: the owner pushes back after a verdict; the same board reacts and the chair re-rules
 export async function runFollowUp(history, userMsg, onEvent, opts = {}) {
   const t0 = Date.now();
@@ -574,27 +598,57 @@ function ensureMcpConfig() {
 // capability the executor can use IN THEIR OWN account (their auth, their
 // credits). Plain words in the UI ("연결"), never "MCP". Auth rides on the
 // claude.ai session connectors, so most need no key — just enable.
+// English-only (global B2B target). name/blurb/examples are English.
 export const CONNECTIONS = [
-  { id: 'image', emoji: '🎨', name: '이미지·영상 만들기', name_en: 'Image & video',
-    blurb: '홍보 이미지·카드뉴스·짧은 영상을 직접 만들어요.', blurb_en: 'Make promo images, cards, short videos.',
-    examples: ['인스타 홍보 카드 만들어줘', '신메뉴 소개 이미지 한 장'],
-    tools: ['mcp__claude_ai__generate_image', 'mcp__claude_ai__generate_video'] },
-  { id: 'canva', emoji: '🖼️', name: '캔바 디자인', name_en: 'Canva design',
-    blurb: '템플릿으로 포스터·SNS 그래픽을 디자인해요.', blurb_en: 'Design posters & social graphics from templates.',
-    examples: ['이벤트 포스터 디자인', '메뉴판 새로 디자인'],
-    tools: ['mcp__claude_ai_Canva'] },
-  { id: 'gamma', emoji: '📊', name: '발표자료 만들기', name_en: 'Slide decks (Gamma)',
-    blurb: '제안서·발표 슬라이드를 자동으로 만들어요.', blurb_en: 'Auto-build pitch & presentation decks.',
-    examples: ['투자자용 5장 덱', '신메뉴 소개 슬라이드'],
-    tools: ['mcp__claude_ai_Gamma'] },
-  { id: 'notion', emoji: '📒', name: '노션', name_en: 'Notion',
-    blurb: '문서·표를 작성하고 정리해요.', blurb_en: 'Write & organize docs and tables.',
-    examples: ['이번 주 할 일 노션에 정리', '거래처 연락처 표로'],
-    tools: ['mcp__claude_ai_Notion'] },
-  { id: 'gmail', emoji: '✉️', name: '이메일 초안 (Gmail)', name_en: 'Email drafts (Gmail)',
-    blurb: '메일 초안을 써두고 라벨을 정리해요. 발송은 직접.', blurb_en: 'Draft emails & tidy labels. You hit send.',
-    examples: ['고객 안내 메일 초안 써줘', '지난주 문의 메일 정리'],
-    tools: ['mcp__claude_ai_Gmail'] },
+  { id: 'image', emoji: '🎨', name: 'Image & video', name_en: 'Image & video',
+    blurb: 'Make promo images, cards, and short videos.', blurb_en: 'Make promo images, cards, short videos.',
+    examples: ['Make an Instagram promo card', 'A launch image for the new product'],
+    tools: ['mcp__claude_ai__generate_image', 'mcp__claude_ai__generate_video'], reliable: 'auth' },
+  { id: 'canva', emoji: '🖼️', name: 'Canva design', name_en: 'Canva design',
+    blurb: 'Design posters & social graphics from templates.', blurb_en: 'Design posters & social graphics from templates.',
+    examples: ['Design an event poster', 'A fresh one-pager layout'],
+    tools: ['mcp__claude_ai_Canva'], reliable: 'auth' },
+  { id: 'gamma', emoji: '📊', name: 'Slide decks (Gamma)', name_en: 'Slide decks (Gamma)',
+    blurb: 'Auto-build pitch & presentation decks.', blurb_en: 'Auto-build pitch & presentation decks.',
+    examples: ['A 5-slide investor deck', 'A product overview deck'],
+    tools: ['mcp__claude_ai_Gamma'], reliable: 'auth' },
+  { id: 'notion', emoji: '📒', name: 'Notion', name_en: 'Notion',
+    blurb: 'Write & organize docs and tables.', blurb_en: 'Write & organize docs and tables.',
+    examples: ['Put this week’s to-dos in Notion', 'Make a contacts table'],
+    tools: ['mcp__claude_ai_Notion'], reliable: 'auth' },
+  { id: 'gmail', emoji: '✉️', name: 'Email drafts (Gmail)', name_en: 'Email drafts (Gmail)',
+    blurb: 'Draft emails & tidy labels. You hit send.', blurb_en: 'Draft emails & tidy labels. You hit send.',
+    examples: ['Draft a customer update email', 'Tidy last week’s inbound mail'],
+    tools: ['mcp__claude_ai_Gmail'], reliable: 'auth' },
+  { id: 'meta_ads', emoji: '📣', name: 'Meta Ads', name_en: 'Meta Ads',
+    blurb: 'Read & manage Facebook/Instagram ad campaigns.', blurb_en: 'Read & manage Facebook/Instagram ad campaigns.',
+    examples: ['Which ad set has the best ROAS?', 'Draft 3 new ad creatives'],
+    tools: ['mcp__claude_ai_meta-ads'], reliable: 'auth' },
+  { id: 'hubspot', emoji: '🧲', name: 'HubSpot CRM', name_en: 'HubSpot CRM',
+    blurb: 'Query contacts, deals & campaign analytics.', blurb_en: 'Query contacts, deals & campaign analytics.',
+    examples: ['List deals closing this month', 'Top campaigns by conversions'],
+    tools: ['mcp__claude_ai_HubSpot'], reliable: 'auth' },
+  { id: 'slack', emoji: '#️⃣', name: 'Slack', name_en: 'Slack',
+    blurb: 'Post & organize team channel messages.', blurb_en: 'Post & organize team channel messages.',
+    examples: ['Post this to the announcements channel', 'Summarize last week’s threads'],
+    tools: ['mcp__claude_ai_Slack'], reliable: 'auth' },
+  { id: 'calendar', emoji: '📅', name: 'Google Calendar', name_en: 'Google Calendar',
+    blurb: 'Book events and find open slots.', blurb_en: 'Book events and find open slots.',
+    examples: ['Schedule next week’s meeting', 'Find my open slots this week'],
+    tools: ['mcp__claude_ai_Google_Calendar'], reliable: 'auth' },
+  { id: 'drive', emoji: '📂', name: 'Google Drive/Docs', name_en: 'Google Drive/Docs',
+    blurb: 'Create, save & find docs and sheets.', blurb_en: 'Create, save & find docs and sheets.',
+    examples: ['Make a vendor list sheet', 'Find last month’s revenue doc'],
+    tools: ['mcp__claude_ai_Google_Drive'], reliable: 'auth' },
+  // ── web & local: load reliably in the headless executor (no OAuth) ──
+  { id: 'web', emoji: '🔎', name: 'Web research', name_en: 'Web research',
+    blurb: 'Search the web for facts, competitors, prices.', blurb_en: 'Search the web for facts, competitors, prices.',
+    examples: ['Research competitor pricing', 'Find this program’s deadline'],
+    tools: ['WebSearch', 'WebFetch'], reliable: 'high' },
+  { id: 'browser', emoji: '🖱️', name: 'Browser automation', name_en: 'Browser automation',
+    blurb: 'Drive your logged-in sites — fill, click, post.', blurb_en: 'Drive your logged-in sites — fill, click, post.',
+    examples: ['Check my bookings and screenshot', 'Fill out this online form'],
+    tools: ['mcp__playwright'], reliable: 'high' },
 ];
 const CONNECTIONS_PATH = join(HOME, 'connections.json');
 export function loadConnections() { try { return JSON.parse(readFileSync(CONNECTIONS_PATH, 'utf8')); } catch { return ['image']; } }
