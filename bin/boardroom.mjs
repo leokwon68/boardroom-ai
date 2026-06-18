@@ -141,7 +141,57 @@ ADJUSTED_CONFIDENCE: integer 0-100 on its own line.`);
 // `boardroom share` / `--share` → also open a public tunnel (token-gated) for the phone
 const WANT_SHARE = ARGV.some(a => /^--?share$/i.test(a));
 const REST = ARGV.filter(a => !/^--?share$/i.test(a));
-if (!REST.join(' ').trim() || ['serve', 'web', 'app', 'ui', 'share'].includes(REST[0]?.toLowerCase())) {
+const WORKER_CFG = join(HOME, 'worker.json');
+const sub = REST[0]?.toLowerCase();
+
+// ── boardroom link <cloudURL> <token> — pair this machine to a cloud account ──
+if (sub === 'link') {
+  const url = REST[1], token = REST[2];
+  if (!url || !token) { console.error(C.red('usage: boardroom link <cloudURL> <token>')); process.exit(1); }
+  writeFileSync(WORKER_CFG, JSON.stringify({ url: url.replace(/\/$/, ''), token }, null, 2));
+  console.log(C.green('✓ linked. ') + `Now run: ${C.bold('boardroom worker')}`);
+  process.exit(0);
+}
+
+// ── boardroom worker — poll the cloud account and run approved plans for real ──
+if (sub === 'worker') {
+  if (!existsSync(WORKER_CFG)) { console.error(C.red('not linked. run: boardroom link <cloudURL> <token>')); process.exit(1); }
+  const { url, token } = JSON.parse(readFileSync(WORKER_CFG, 'utf8'));
+  const here = dirname(fileURLToPath(import.meta.url));
+  const eng = await import(join(here, '..', 'engine.mjs'));
+  const post = (path, payload) => fetch(`${url}/api/${path}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+  }).then(r => r.json()).catch(e => ({ error: e.message }));
+
+  console.log(`\n  Boardroom execution agent → ${C.cyan(url)}\n  ${C.dim('polling for approved plans… (Ctrl-C to stop)')}\n`);
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    const res = await post('worker/poll', { token });
+    if (res.error) { process.stdout.write(C.red(`\r poll error: ${res.error}   `)); return; }
+    const job = res.job;
+    if (!job) { process.stdout.write(C.dim(`\r idle ${new Date().toLocaleTimeString()}   `)); return; }
+    running = true;
+    console.log(`\n${C.bold('▶ executing')} ${job.plan?.title || job.plan?.summary || job.id}`);
+    const onEvent = (_t, payload) => {
+      // engine emits ('exec', {kind, tool|text|result, ...}); forward each verbatim
+      if (payload?.kind === 'tool') console.log(C.dim(`  · ${payload.tool} ${payload.detail || ''}`));
+      else if (payload?.kind === 'say') console.log(`  ${payload.text}`);
+      post('worker/event', { token, jobId: job.id, event: payload });
+    };
+    try {
+      const { result } = await eng.runExecution(job.plan, onEvent, { approved: !!job.approved });
+      await post('worker/done', { token, jobId: job.id, result, deliverable: result, status: 'done' });
+      console.log(C.green(`✓ done: ${result?.slice(0, 120) || ''}`));
+    } catch (e) {
+      await post('worker/done', { token, jobId: job.id, result: `error: ${e.message}`, status: 'error' });
+      console.log(C.red(`✗ ${e.message}`));
+    }
+    running = false;
+  };
+  await tick();
+  setInterval(tick, 3000);
+} else if (!REST.join(' ').trim() || ['serve', 'web', 'app', 'ui', 'share'].includes(sub)) {
   const here = dirname(fileURLToPath(import.meta.url));
   const server = join(here, '..', 'server.mjs');
   console.log(`\n  Boardroom — your one-person company, incorporated.\n  starting…\n`);

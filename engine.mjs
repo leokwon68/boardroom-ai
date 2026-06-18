@@ -641,7 +641,13 @@ export const CONNECTIONS = [
   { id: 'image', emoji: '🎨', name: 'Image & video', name_en: 'Image & video',
     blurb: 'Make promo images, cards, and short videos.', blurb_en: 'Make promo images, cards, short videos.',
     examples: ['Make an Instagram promo card', 'A launch image for the new product'],
-    tools: ['mcp__claude_ai__generate_image', 'mcp__claude_ai__generate_video'], reliable: 'auth' },
+    // generate_* SUBMIT the job; job_status/job_display/show_generations/reveal_generation
+    // are needed to POLL and RETRIEVE the finished asset — without them the executor
+    // submits a reel but can never fetch the file. media_* let it pull the result down.
+    tools: ['mcp__claude_ai__generate_image', 'mcp__claude_ai__generate_video',
+            'mcp__claude_ai__job_status', 'mcp__claude_ai__job_display',
+            'mcp__claude_ai__show_generations', 'mcp__claude_ai__reveal_generation',
+            'mcp__claude_ai__media_import_url', 'mcp__claude_ai__show_medias'], reliable: 'auth' },
   { id: 'canva', emoji: '🖼️', name: 'Canva design', name_en: 'Canva design',
     blurb: 'Design posters & social graphics from templates.', blurb_en: 'Design posters & social graphics from templates.',
     examples: ['Design an event poster', 'A fresh one-pager layout'],
@@ -797,10 +803,14 @@ When finished, print exactly one final line: RESULT: <one sentence in ${lang} �
       '--allowedTools', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'mcp__playwright', ...extraTools,
       '--setting-sources', 'project',
       '--mcp-config', join(HOME, 'mcp.json'),
-      '--disallowedTools', 'Task', 'Agent', 'Skill', 'ToolSearch', 'CronCreate', 'CronDelete', 'CronList',
+      '--disallowedTools', 'Task', 'Agent', 'Skill', 'CronCreate', 'CronDelete', 'CronList',
       'RemoteTrigger', 'SendMessage', 'PushNotification', 'TeamCreate', 'TeamDelete', 'NotebookEdit',
       'TaskCreate', 'TaskUpdate', 'Workflow', 'EnterPlanMode', 'ExitPlanMode',
-      '--model', 'sonnet',
+      // pin the STANDARD-context model id (not the `sonnet` alias, which can resolve to a
+      // 1M-context variant on higher-tier accounts → 1M billing → blocked when overage is off).
+      // Keep ToolSearch ENABLED so connector tools stay deferred (loaded on demand) instead of
+      // eagerly inflating the system prompt past the 200k standard-context ceiling.
+      '--model', 'claude-sonnet-4-6',
     ], { cwd: WORKSPACE, stdio: ['pipe', 'pipe', 'pipe'] });
     // runaway/hang guard — kill after 12 min
     const killer = setTimeout(() => { try { p.kill('SIGKILL'); } catch {} onEvent('exec', { kind: 'say', text: isKo ? '⏱ 실행이 12분을 넘겨 중단했습니다' : '⏱ execution timed out (12 min) — killed' }); }, 12 * 60 * 1000);
